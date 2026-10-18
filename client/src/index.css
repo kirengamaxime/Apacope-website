@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  body { @apply bg-ink-50 font-sans text-[15px] leading-relaxed text-ink-900 antialiased; }
+  h1, h2, h3 { @apply font-serif tracking-tight; }
+  h1 { @apply text-2xl font-semibold sm:text-3xl; }
+  h2 { @apply text-lg font-semibold; }
+  h3 { @apply text-base font-semibold; }
+  :focus-visible { outline: 2px solid #1f4166; outline-offset: 2px; border-radius: 4px; }
+  table { font-variant-numeric: tabular-nums; }
+  ::selection { background: #fad9da; }
+}
+
+@layer components {
+  .card { @apply rounded-lg border border-ink-200 bg-white p-4 sm:p-5; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply btn bg-brand-600 text-white hover:bg-brand-700; }
+  .btn-ghost { @apply btn border border-ink-200 bg-white text-ink-900 hover:border-ink-300 hover:bg-ink-50; }
+  .btn-danger { @apply btn border border-brand-200 bg-white text-brand-700 hover:bg-brand-50; }
+  .input { @apply w-full rounded-md border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-500/70 transition-colors hover:border-ink-300 focus:border-navy-700 focus:outline-none focus:ring-2 focus:ring-navy-700/15 disabled:bg-ink-50 disabled:text-ink-500; }
+  .label { @apply mb-1 block text-[13px] font-medium text-ink-700; }
+  .th { @apply border-b border-ink-200 bg-ink-50 px-3 py-2.5 text-left text-xs font-semibold text-ink-500; }
+  .td { @apply px-3 py-3 text-sm; }
+  .badge { @apply inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-semibold; }
+  tbody tr { @apply transition-colors hover:bg-ink-50/70; }
+}
+
+/* ---------- Exercise-book motif used on the public site and login ---------- */
+.ruled {
+  background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 39px, rgba(255, 255, 255, 0.06) 39px, rgba(255, 255, 255, 0.06) 40px);
+}
+.margin-line { transform-origin: top; animation: draw 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@keyframes draw { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.hero-in { animation: hero-in 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: var(--d, 0ms); }
+@keyframes hero-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .margin-line, .hero-in { animation: none; }
+}
