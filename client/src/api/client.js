@@ -1,4 +1,4 @@
-const BASE = '/api';
+const BASE = `${(import.meta.env.VITE_API_URL || '').replace(/\/$/, '')}/api`;
 
 export const getToken = () => localStorage.getItem('apacope_token');
 export const setToken = (t) => (t ? localStorage.setItem('apacope_token', t) : localStorage.removeItem('apacope_token'));
