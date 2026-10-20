@@ -239,34 +239,11 @@ function Programs({ onAsk }) {
 }
 
 /* ------------------------------------------------------------------- portal */
-function PortalPreview() {
-  return (
-    <figure className="rounded-lg border border-ink-200 bg-white shadow-sm" aria-label="Example of the parent view with sample data">
-      <div className="flex items-center justify-between border-b border-ink-200 px-5 py-3">
-        <p className="font-semibold">Example learner</p>
-        <span className="badge bg-ink-100 text-ink-700">Sample data</span>
-      </div>
-      <div className="space-y-5 p-5">
-        <div>
-          <div className="flex items-baseline justify-between"><p className="text-sm text-ink-500">Attendance this month</p><p className="font-serif text-2xl font-semibold tabular-nums">96%</p></div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-ink-100"><div className="h-full w-[96%] rounded-full bg-emerald-600" /></div>
-        </div>
-        <dl className="divide-y divide-ink-100 text-sm">
-          <div className="flex justify-between py-2.5"><dt className="text-ink-500">Absences</dt><dd className="font-medium">1 day</dd></div>
-          <div className="flex justify-between py-2.5"><dt className="text-ink-500">Latest result</dt><dd className="font-medium">Databases, 78%, <span className="text-emerald-700">Competent</span></dd></div>
-          <div className="flex justify-between py-2.5"><dt className="text-ink-500">Fee balance</dt><dd className="font-medium">0 RWF</dd></div>
-        </dl>
-        <div className="rounded-md border-l-4 border-brand-600 bg-brand-50 px-3 py-2.5 text-sm"><p className="font-semibold">Parents meeting on Saturday</p><p className="text-ink-700">Please confirm you have read this notice.</p></div>
-      </div>
-    </figure>
-  );
-}
-
 function Portal() {
   const { user } = useAuth();
   return (
     <section id="portal" className="scroll-mt-24 bg-white py-20 sm:py-28">
-      <Container className="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
+      <Container className="grid gap-12">
         <div>
           <SectionHead title="Follow your child's progress from any phone" lead="Every family receives a secure account. You see only your own children's information." />
           <ul className="mt-8 space-y-3">
@@ -277,7 +254,6 @@ function Portal() {
             {!user && <Link to="/forgot-password" className="btn-ghost px-6 py-3">I forgot my password</Link>}
           </div>
         </div>
-        <PortalPreview />
       </Container>
     </section>
   );
@@ -288,6 +264,7 @@ function Gallery({ photos }) {
   const [i, setI] = useState(null);
   const n = photos.length;
   const titleOf = (src) => gallery.find((g) => g.src === src)?.title || '';
+  const textOf = (src) => gallery.find((g) => g.src === src)?.text || '';
   useEffect(() => {
     if (i === null) return;
     const h = (e) => {
@@ -301,6 +278,7 @@ function Gallery({ photos }) {
   }, [i, n]);
   const feature = n >= 5;
   const empty = n === 0;
+  const gaps = feature ? (3 - ((n - 3) % 3)) % 3 : 0; // empty cells the last tile should fill
   return (
     <section id="gallery" className="scroll-mt-24 border-t border-ink-200 bg-ink-50 py-20 sm:py-28">
       <Container>
@@ -312,7 +290,7 @@ function Gallery({ photos }) {
             </div>
           ))}
           {photos.map((src, idx) => (
-            <button key={src} onClick={() => setI(idx)} className={`group relative overflow-hidden rounded-lg bg-ink-100 ${feature && idx === 0 ? 'col-span-2 row-span-2' : ''}`} style={{ aspectRatio: feature && idx === 0 ? '4 / 3' : '4 / 3' }}>
+            <button key={src} onClick={() => setI(idx)} className={`group relative overflow-hidden rounded-lg bg-ink-100 ${feature && idx === 0 ? 'col-span-2 row-span-2' : ''} ${feature && idx === n - 1 && gaps === 1 ? 'col-span-2' : ''}`} style={{ aspectRatio: feature && idx === n - 1 && gaps === 1 ? '8 / 3' : '4 / 3' }}>
               <img src={src} alt={titleOf(src)} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
               <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink-900/80 to-transparent p-3 pt-8 text-left text-sm font-medium text-white">{titleOf(src)}</span>
             </button>
@@ -325,7 +303,7 @@ function Gallery({ photos }) {
           {n > 1 && <button className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white hover:bg-white/20" onClick={(e) => { e.stopPropagation(); setI((i - 1 + n) % n); }} aria-label="Previous photo"><ChevronLeft className="h-6 w-6" /></button>}
           <figure className="max-w-5xl text-center" onClick={(e) => e.stopPropagation()}>
             <img src={photos[i]} alt={titleOf(photos[i])} className="max-h-[78vh] rounded-md object-contain" />
-            <figcaption className="mt-3 text-white/85">{titleOf(photos[i])} <span className="text-white/50">({i + 1} of {n})</span></figcaption>
+            <figcaption className="mt-3 text-white/85"><span className="block font-semibold">{titleOf(photos[i])} <span className="font-normal text-white/50">({i + 1} of {n})</span></span><span className="mx-auto mt-1 block max-w-2xl text-sm text-white/70">{textOf(photos[i])}</span></figcaption>
           </figure>
           {n > 1 && <button className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white hover:bg-white/20" onClick={(e) => { e.stopPropagation(); setI((i + 1) % n); }} aria-label="Next photo"><ChevronRight className="h-6 w-6" /></button>}
         </div>
