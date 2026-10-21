@@ -37,7 +37,7 @@ export default function ReportCards() {
       <PageHeader title="Report cards" subtitle="Build each learner's report from the recorded marks, add your comment, and print it as a PDF">
         {classId && students.length > 0 && <button className="btn-ghost" disabled={!!busy} onClick={() => pdf(`/report-cards/class/${classId}/pdf`, 'class-report-cards.pdf', 'class')}>{busy === 'class' ? 'Preparing...' : 'Download whole class (PDF)'}</button>}
       </PageHeader>
-      <Alert>{error}</Alert>
+        <Alert>{error || list.error || rep.error}</Alert>
 
       <div className="card mb-5 grid gap-3 sm:grid-cols-2">
         <div><label className="label" htmlFor="rc-class">Class</label>
