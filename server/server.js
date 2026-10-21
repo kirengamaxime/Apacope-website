@@ -47,6 +47,7 @@ app.use('/api/inventory', require('./routes/inventory'));
 app.use('/api/calendar', require('./routes/calendar'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/reports', require('./routes/reports'));
+app.use('/api/report-cards', require('./routes/reportcards'));
 
 // Serve the built React app in production
 const dist = path.join(__dirname, '..', 'client', 'dist');

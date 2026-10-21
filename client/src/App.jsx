@@ -3,6 +3,7 @@ import { useAuth } from './context/AuthContext';
 import Layout, { NAV } from './components/Layout';
 import { Spinner } from './components/ui';
 import Login, { ForgotPassword, ResetPassword } from './pages/Login';
+import ReportCards from './pages/ReportCards';
 import Dashboard from './pages/Dashboard';
 import Attendance from './pages/Attendance';
 import Monitoring from './pages/Monitoring';
@@ -56,6 +57,7 @@ export default function App() {
         {g('/my-attendance', <MyAttendance />)}
         {g('/marks', <Marks />)}
         {g('/results', <Results />)}
+        {g('/report-cards', <ReportCards />)}
         {g('/resources', <Resources category="lesson" />)}
         {g('/entertainment', <Resources category="entertainment" />)}
         {g('/announcements', <Announcements />)}
