@@ -31,6 +31,7 @@ router.post('/bulk', authorize('trainer', 'dos'), wrap(async (req, res) => {
   res.json({ saved: marks.length });
 }));
 
+// Change one recorded mark
 router.put('/:id', authorize('trainer', 'dos'), wrap(async (req, res) => {
   const a = await Assessment.findById(req.params.id);
   if (!a) return res.status(404).json({ message: 'Not found' });
@@ -43,6 +44,16 @@ router.put('/:id', authorize('trainer', 'dos'), wrap(async (req, res) => {
   await a.save();
   await audit(req, 'MARKS_CHANGE', 'Assessment', a._id, { student: a.student, from: before, to: a.score });
   res.json(a);
+}));
+
+// Remove a single recorded mark (e.g. entered for the wrong learner)
+router.delete('/:id', authorize('trainer', 'dos'), wrap(async (req, res) => {
+  const a = await Assessment.findById(req.params.id);
+  if (!a) return res.status(404).json({ message: 'Not found' });
+  if (!(await canMark(req.user, a.class, a.module))) return res.status(403).json({ message: 'Not allowed' });
+  await a.deleteOne();
+  await audit(req, 'MARKS_DELETE', 'Assessment', a._id, { student: a.student, score: a.score });
+  res.json({ message: 'Mark deleted' });
 }));
 
 /** Student results with totals, averages, grades and competency (privacy scoped) */

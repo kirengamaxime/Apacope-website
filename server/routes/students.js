@@ -1,4 +1,8 @@
 const router = require('express').Router();
+const mongoose = require('mongoose');
+const {
+  Student, Parent, User, Attendance, Assessment, FollowUp, Invoice, Payment, Announcement,
+} = require('../models');
 const { Student, Parent, User } = require('../models');
 const { protect, authorize, visibleStudentIds } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');

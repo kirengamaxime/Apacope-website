@@ -22,9 +22,33 @@ router.post('/items', authorize('librarian'), wrap(async (req, res) => {
 }));
 
 router.put('/items/:id', authorize('librarian'), wrap(async (req, res) => {
-  const item = await InventoryItem.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  await audit(req, 'INVENTORY_UPDATE', 'InventoryItem', req.params.id);
+  const item = await InventoryItem.findById(req.params.id);
+  if (!item) return res.status(404).json({ message: 'Not found' });
+  const { name, category, tag, condition, quantity } = req.body;
+  if (name !== undefined) item.name = name;
+  if (category !== undefined) item.category = category;
+  if (tag !== undefined) item.tag = tag || undefined;
+  if (condition !== undefined) item.condition = condition;
+  if (quantity !== undefined) {
+    const q = Number(quantity);
+    const onLoan = item.quantity - item.available;
+    if (!(q >= 1) || q < onLoan) return res.status(400).json({ message: `Quantity cannot be less than the ${onLoan} currently on loan` });
+    item.quantity = q;
+    item.available = q - onLoan;
+  }
+  await item.save();
+  await audit(req, 'INVENTORY_UPDATE', 'InventoryItem', item._id);
   res.json(item);
+}));
+
+router.delete('/items/:id', authorize('librarian'), wrap(async (req, res) => {
+  const item = await InventoryItem.findById(req.params.id);
+  if (!item) return res.status(404).json({ message: 'Not found' });
+  if (await Loan.exists({ item: item._id, returnedAt: { $exists: false } })) return res.status(400).json({ message: 'This item is still on loan. Record the return first.' });
+  await Loan.deleteMany({ item: item._id });
+  await item.deleteOne();
+  await audit(req, 'INVENTORY_DELETE', 'InventoryItem', item._id, { name: item.name });
+  res.json({ message: 'Item deleted' });
 }));
 
 router.get('/loans', wrap(async (req, res) => {
@@ -57,6 +81,16 @@ router.put('/loans/:id/return', authorize('librarian'), wrap(async (req, res) =>
   await InventoryItem.updateOne({ _id: loan.item }, update);
   await audit(req, 'LOAN_RETURN', 'Loan', loan._id, { damaged: loan.damaged });
   res.json(loan);
+}));
+
+// Cancel a loan recorded by mistake (stock goes back if it was still out)
+router.delete('/loans/:id', authorize('librarian'), wrap(async (req, res) => {
+  const loan = await Loan.findById(req.params.id);
+  if (!loan) return res.status(404).json({ message: 'Not found' });
+  if (!loan.returnedAt) await InventoryItem.updateOne({ _id: loan.item }, { $inc: { available: loan.quantity } });
+  await loan.deleteOne();
+  await audit(req, 'LOAN_DELETE', 'Loan', loan._id);
+  res.json({ message: 'Loan removed' });
 }));
 
 module.exports = router;

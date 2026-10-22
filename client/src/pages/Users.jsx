@@ -85,6 +85,11 @@ export default function Users() {
     if (!window.confirm(`Generate a new one-time password for ${u.name}? Their current password stops working.`)) return;
     try { setCreds(await api.post(`/users/${u._id}/reset-password`)); } catch (e) { setErr(e.message); }
   };
+  const remove = async (u) => {
+    if (!window.confirm(`Permanently delete ${u.name} (${u.email})? This cannot be undone.\n\nTo only block their login, press Cancel, then use Edit and untick "Account active".`)) return;
+    setErr('');
+    try { await api.del(`/users/${u._id}`); reload(); } catch (e) { setErr(e.message); }
+  };
   return (
     <>
       <PageHeader title="Users and roles" subtitle={admin ? 'Create login accounts for staff, learners and parents, and control access' : 'Accounts are created and managed by the System Administrator'}>
@@ -97,13 +102,13 @@ export default function Users() {
       <Alert>{error || err}</Alert>
       {loading ? <Spinner /> : !data?.items?.length ? <Empty text="No users." /> : (
         <div className="card overflow-x-auto">
-          <table className="w-full min-w-[680px]">
+          <table className="w-full min-w-[760px]">
             <thead><tr className="border-b border-ink-200"><th className="th">Name</th><th className="th">Email</th><th className="th">Role</th><th className="th">Last login</th><th className="th">Status</th><th className="th" /></tr></thead>
             <tbody>
               {data.items.map((u) => (
                 <tr key={u._id} className="border-b border-ink-100"><td className="td font-medium">{u.name}</td><td className="td">{u.email}</td><td className="td">{ROLE_LABEL[u.role]}</td><td className="td text-ink-500">{u.lastLogin ? fmtDate(u.lastLogin) : 'Never'}</td>
                   <td className="td"><span className={`badge ${!u.active ? 'bg-red-100 text-red-700' : u.mustChangePassword ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-700'}`}>{!u.active ? 'Disabled' : u.mustChangePassword ? 'Not yet logged in' : 'Active'}</span></td>
-                  <td className="td whitespace-nowrap text-right">{admin && <><button className="btn-ghost" onClick={() => setForm(u)}>Edit</button><button className="btn-ghost" onClick={() => reset(u)}>Reset password</button></>}</td></tr>
+                  <td className="td whitespace-nowrap text-right">{admin && <><button className="btn-ghost" onClick={() => setForm(u)}>Edit</button><button className="btn-ghost" onClick={() => reset(u)}>Reset password</button><button className="btn-danger" onClick={() => remove(u)}>Delete</button></>}</td></tr>
               ))}
             </tbody>
           </table>

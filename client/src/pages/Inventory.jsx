@@ -6,13 +6,14 @@ import { PageHeader, Alert, Spinner, Empty, Modal, Pagination, useFetch, fmtDate
 const CATS = ['computer', 'lab', 'tool', 'book', 'other'];
 const COND = { good: 'bg-emerald-50 text-emerald-700', fair: 'bg-amber-50 text-amber-700', damaged: 'bg-red-100 text-red-700' };
 
-function ItemForm({ onClose, onDone }) {
-  const [f, setF] = useState({ name: '', category: 'computer', tag: '', quantity: 1, condition: 'good' });
+function ItemForm({ item, onClose, onDone }) {
+  const edit = !!item;
+  const [f, setF] = useState({ name: item?.name || '', category: item?.category || 'computer', tag: item?.tag || '', quantity: item?.quantity || 1, condition: item?.condition || 'good' });
   const [error, setError] = useState('');
   const up = (k) => (e) => setF({ ...f, [k]: e.target.value });
-  const submit = async (e) => { e.preventDefault(); try { await api.post('/inventory/items', { ...f, quantity: Number(f.quantity), tag: f.tag || undefined }); onDone(); } catch (er) { setError(er.message); } };
+  const submit = async (e) => { e.preventDefault(); try { const body = { ...f, quantity: Number(f.quantity), tag: f.tag || undefined }; if (edit) await api.put(`/inventory/items/${item._id}`, body); else await api.post('/inventory/items', body); onDone(); } catch (er) { setError(er.message); } };
   return (
-    <Modal title="Add inventory item" onClose={onClose}>
+    <Modal title={edit ? 'Edit inventory item' : 'Add inventory item'} onClose={onClose}>
       <Alert>{error}</Alert>
       <form onSubmit={submit} className="space-y-3">
         <div><label className="label">Name</label><input className="input" required value={f.name} onChange={up('name')} /></div>
@@ -49,9 +50,20 @@ export default function Inventory() {
   const [category, setCategory] = useState('');
   const items = useFetch(() => api.get(`/inventory/items${qs({ page, search, category })}`), [page, search, category]);
   const loans = useFetch(() => api.get('/inventory/loans?open=true'), []);
-  const [add, setAdd] = useState(false);
+  const [add, setAdd] = useState(null); // null | {} (new) | item (edit)
+  const [err, setErr] = useState('');
   const [lend, setLend] = useState(null);
   const refresh = () => { items.reload(); loans.reload(); };
+  const removeItem = async (i) => {
+    if (!window.confirm(`Delete "${i.name}" from the inventory? Its loan history is deleted too. This cannot be undone.`)) return;
+    setErr('');
+    try { await api.del(`/inventory/items/${i._id}`); refresh(); } catch (e) { setErr(e.message); }
+  };
+  const removeLoan = async (l) => {
+    if (!window.confirm(`Delete this loan record (${l.item?.name} - ${l.borrower?.name})?`)) return;
+    setErr('');
+    try { await api.del(`/inventory/loans/${l._id}`); refresh(); } catch (e) { setErr(e.message); }
+  };
   const giveBack = async (l) => {
     const damaged = window.confirm('Was the item damaged? OK = yes, Cancel = no');
     const damageNote = damaged ? window.prompt('Describe the damage') || '' : '';
@@ -59,11 +71,12 @@ export default function Inventory() {
   };
   return (
     <>
-      <PageHeader title="Inventory and library" subtitle="Computers, lab equipment, tools and books">{manage && <button className="btn-primary" onClick={() => setAdd(true)}>Add item</button>}</PageHeader>
+      <PageHeader title="Inventory and library" subtitle="Computers, lab equipment, tools and books">{manage && <button className="btn-primary" onClick={() => setAdd({})}>Add item</button>}</PageHeader>
       <div className="card mb-4 grid gap-3 sm:grid-cols-[1fr_180px]">
         <input className="input" placeholder="Search items..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
         <select className="input" value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }}><option value="">All categories</option>{CATS.map((c) => <option key={c}>{c}</option>)}</select>
       </div>
+      <Alert>{err}</Alert>
       {items.loading ? <Spinner /> : !items.data?.items?.length ? <Empty text="No items." /> : (
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[560px]">
@@ -71,7 +84,7 @@ export default function Inventory() {
             <tbody>
               {items.data.items.map((i) => (
                 <tr key={i._id} className="border-b border-ink-100"><td className="td font-medium">{i.name}</td><td className="td">{i.tag}</td><td className="td capitalize">{i.category}</td><td className="td">{i.available}/{i.quantity}</td><td className="td"><span className={`badge ${COND[i.condition]}`}>{i.condition}</span></td>
-                  <td className="td text-right">{manage && <button className="btn-ghost" disabled={!i.available} onClick={() => setLend(i)}>Lend</button>}</td></tr>
+                  <td className="td whitespace-nowrap text-right">{manage && <><button className="btn-ghost" disabled={!i.available} onClick={() => setLend(i)}>Lend</button><button className="btn-ghost" onClick={() => setAdd(i)}>Edit</button><button className="btn-danger" onClick={() => removeItem(i)}>Delete</button></>}</td></tr>
               ))}
             </tbody>
           </table>
@@ -85,13 +98,13 @@ export default function Inventory() {
             <li key={l._id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
               <span><b>{l.item?.name}</b> x{l.quantity} - {l.borrower?.name}</span>
               <span className="text-ink-500">Borrowed {fmtDate(l.borrowedAt)}{l.dueAt ? `, due ${fmtDate(l.dueAt)}` : ''}</span>
-              {manage && <button className="btn-ghost" onClick={() => giveBack(l)}>Return</button>}
+              {manage && <span className="whitespace-nowrap"><button className="btn-ghost" onClick={() => giveBack(l)}>Return</button><button className="btn-danger" onClick={() => removeLoan(l)}>Delete</button></span>}
             </li>
           ))}
           {!loans.data?.length && <li className="py-3 text-ink-500">Nothing is on loan.</li>}
         </ul>
       </div>
-      {add && <ItemForm onClose={() => setAdd(false)} onDone={() => { setAdd(false); refresh(); }} />}
+      {add && <ItemForm item={add._id ? add : null} onClose={() => setAdd(null)} onDone={() => { setAdd(null); refresh(); }} />}
       {lend && <LoanForm item={lend} onClose={() => setLend(null)} onDone={() => { setLend(null); refresh(); }} />}
     </>
   );

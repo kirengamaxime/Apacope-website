@@ -22,6 +22,24 @@ function PayForm({ invoice, onClose, onDone }) {
   );
 }
 
+function EditInvoice({ invoice, onClose, onDone }) {
+  const [f, setF] = useState({ description: invoice.description || '', amount: invoice.amount, dueDate: invoice.dueDate ? String(invoice.dueDate).slice(0, 10) : '' });
+  const [error, setError] = useState('');
+  const up = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const submit = async (e) => { e.preventDefault(); try { await api.put(`/finance/invoices/${invoice._id}`, { ...f, amount: Number(f.amount) }); onDone(); } catch (er) { setError(er.message); } };
+  return (
+    <Modal title={`Edit invoice - ${invoice.student?.firstName} ${invoice.student?.lastName}`} onClose={onClose}>
+      <Alert>{error}</Alert>
+      <form onSubmit={submit} className="space-y-3">
+        <div><label className="label">Description</label><input className="input" value={f.description} onChange={up('description')} /></div>
+        <div className="grid grid-cols-2 gap-3"><div><label className="label">Amount (RWF)</label><input type="number" min={1} required className="input" value={f.amount} onChange={up('amount')} /></div><div><label className="label">Due date</label><input type="date" className="input" value={f.dueDate} onChange={up('dueDate')} /></div></div>
+        <p className="text-xs text-ink-500">Already paid: {fmtMoney(invoice.paid)}. The amount cannot be lower than this.</p>
+        <button className="btn-primary w-full">Save changes</button>
+      </form>
+    </Modal>
+  );
+}
+
 function BulkInvoice({ onClose, onDone }) {
   const classes = useFetch(() => api.get('/academic/classes'), []);
   const terms = useFetch(() => api.get('/academic/terms'), []);
@@ -53,7 +71,19 @@ export default function Finance() {
   const sum = useFetch(() => (['accountant', 'headteacher', 'admin'].includes(user.role) ? api.get('/finance/summary') : Promise.resolve(null)), []);
   const [payFor, setPayFor] = useState(null);
   const [bulk, setBulk] = useState(false);
+  const [editInv, setEditInv] = useState(null);
+  const [err, setErr] = useState('');
   const refresh = () => { inv.reload(); pay.reload(); sum.reload(); };
+  const removeInvoice = async (i) => {
+    if (!window.confirm(`Delete this invoice for ${i.student?.firstName} ${i.student?.lastName} (${fmtMoney(i.amount)})?\n\nAll receipts issued for it are deleted too. This cannot be undone.`)) return;
+    setErr('');
+    try { await api.del(`/finance/invoices/${i._id}`); refresh(); } catch (e) { setErr(e.message); }
+  };
+  const removePayment = async (p) => {
+    if (!window.confirm(`Cancel receipt ${p.receiptNo} (${fmtMoney(p.amount)})? The invoice balance goes back up.`)) return;
+    setErr('');
+    try { await api.del(`/finance/payments/${p._id}`); refresh(); } catch (e) { setErr(e.message); }
+  };
 
   return (
     <>
@@ -61,6 +91,7 @@ export default function Finance() {
         {accountant && <button className="btn-primary" onClick={() => setBulk(true)}>Invoice a class</button>}
       </PageHeader>
       {sum.data && <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3"><Stat label="Billed" value={fmtMoney(sum.data.billed)} /><Stat label="Collected" value={fmtMoney(sum.data.collected)} tone="good" /><Stat label="Outstanding" value={fmtMoney(sum.data.outstanding)} tone="bad" /></div>}
+      <Alert>{err}</Alert>
       <div className="card">
         <div className="mb-3 flex items-center justify-between"><h2>Invoices</h2>
           <select className="input w-40" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}><option value="">All</option><option value="unpaid">Unpaid</option><option value="partial">Partial</option><option value="paid">Paid</option></select>
@@ -72,7 +103,7 @@ export default function Finance() {
               <tbody>
                 {inv.data.items.map((i) => (
                   <tr key={i._id} className="border-b border-ink-100"><td className="td font-medium">{i.student?.firstName} {i.student?.lastName}</td><td className="td">{i.description}</td><td className="td">{fmtMoney(i.amount)}</td><td className="td">{fmtMoney(i.paid)}</td><td className="td font-semibold">{fmtMoney(i.amount - i.paid)}</td><td className="td"><StatusBadge status={i.status} /></td>
-                    <td className="td text-right">{accountant && i.status !== 'paid' && <button className="btn-ghost" onClick={() => setPayFor(i)}>Receive</button>}</td></tr>
+                    <td className="td whitespace-nowrap text-right">{accountant && <>{i.status !== 'paid' && <button className="btn-ghost" onClick={() => setPayFor(i)}>Receive</button>}<button className="btn-ghost" onClick={() => setEditInv(i)}>Edit</button><button className="btn-danger" onClick={() => removeInvoice(i)}>Delete</button></>}</td></tr>
                 ))}
               </tbody>
             </table>
@@ -83,11 +114,12 @@ export default function Finance() {
       <div className="card mt-4">
         <h2 className="mb-3">Receipts</h2>
         <ul className="divide-y divide-ink-100 text-sm">
-          {(pay.data || []).slice(0, 15).map((p) => <li key={p._id} className="flex flex-wrap justify-between gap-2 py-2"><span className="font-medium">{p.receiptNo}</span><span>{p.student?.firstName} {p.student?.lastName}</span><span>{fmtMoney(p.amount)} - {p.method}</span><span className="text-ink-500">{fmtDate(p.createdAt)}</span></li>)}
+          {(pay.data || []).slice(0, 15).map((p) => <li key={p._id} className="flex flex-wrap justify-between gap-2 py-2"><span className="font-medium">{p.receiptNo}</span><span>{p.student?.firstName} {p.student?.lastName}</span><span>{fmtMoney(p.amount)} - {p.method}</span><span className="text-ink-500">{fmtDate(p.createdAt)}</span>{accountant && <button className="btn-danger" onClick={() => removePayment(p)}>Cancel</button>}</li>)}
           {!pay.data?.length && <li className="py-3 text-ink-500">No payments yet.</li>}
         </ul>
       </div>
       {payFor && <PayForm invoice={payFor} onClose={() => setPayFor(null)} onDone={() => { setPayFor(null); refresh(); }} />}
+      {editInv && <EditInvoice invoice={editInv} onClose={() => setEditInv(null)} onDone={() => { setEditInv(null); refresh(); }} />}
       {bulk && <BulkInvoice onClose={() => setBulk(false)} onDone={() => { setBulk(false); refresh(); }} />}
     </>
   );

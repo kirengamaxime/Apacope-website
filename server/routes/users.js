@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const crypto = require('crypto');
-const { User, Role, AuditLog, Student, ROLES } = require('../models');
+const { User, Role, AuditLog, Student, Parent, Assignment, Timetable, Loan, Class, ROLES } = require('../models');
 const { protect, authorize } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
 const { wrap, paging } = require('../utils/helpers');
@@ -83,13 +83,32 @@ router.post('/:id/reset-password', authorize(), wrap(async (req, res) => {
   res.json({ user, tempPassword: password });
 }));
 
+// Permanently delete an account. (To only block a login, use Edit and untick "Account active".)
 router.delete('/:id', authorize(), wrap(async (req, res) => {
-  if (String(req.user._id) === req.params.id) return res.status(400).json({ message: 'You cannot disable yourself' });
   const target = await User.findById(req.params.id);
-  if (target?.role === 'admin' && (await activeAdmins(target._id)) === 0) return res.status(400).json({ message: 'The last active System Administrator cannot be disabled' });
-  await User.findByIdAndUpdate(req.params.id, { active: false });
-  await audit(req, 'USER_DEACTIVATE', 'User', req.params.id);
-  res.json({ message: 'User deactivated' });
+  if (!target) return res.status(404).json({ message: 'Not found' });
+  if (String(req.user._id) === String(target._id)) return res.status(400).json({ message: 'You cannot delete your own account' });
+  if (target.role === 'admin' && target.active && (await activeAdmins(target._id)) === 0) {
+    return res.status(400).json({ message: 'The last active System Administrator cannot be deleted' });
+  }
+  const [lessons, slots, loans] = await Promise.all([
+    Assignment.countDocuments({ trainer: target._id }),
+    Timetable.countDocuments({ trainer: target._id }),
+    Loan.countDocuments({ borrower: target._id, returnedAt: { $exists: false } }),
+  ]);
+  if (lessons || slots) return res.status(400).json({ message: `${target.name} is still assigned to ${lessons} class module(s) and ${slots} timetable slot(s). Reassign or remove those first, or disable the account instead.` });
+  if (loans) return res.status(400).json({ message: `${target.name} still has ${loans} item(s) on loan. Record the return first.` });
+  // tidy links: student login, parent profile, class teacher
+  await Student.updateMany({ user: target._id }, { $unset: { user: 1 } });
+  const parent = await Parent.findOne({ user: target._id });
+  if (parent) {
+    await Student.updateMany({ parents: parent._id }, { $pull: { parents: parent._id } });
+    await parent.deleteOne();
+  }
+  await Class.updateMany({ classTeacher: target._id }, { $unset: { classTeacher: 1 } });
+  await target.deleteOne();
+  await audit(req, 'USER_DELETE', 'User', target._id, { email: target.email, role: target.role });
+  res.json({ message: 'User deleted' });
 }));
 
 // Role permission sets

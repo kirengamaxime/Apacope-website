@@ -37,6 +37,49 @@ router.post('/invoices/bulk', authorize('accountant'), wrap(async (req, res) => 
   res.status(201).json({ created: docs.length });
 }));
 
+// Edit an invoice (description, amount, due date). The amount cannot go below what is already paid.
+router.put('/invoices/:id', authorize('accountant'), wrap(async (req, res) => {
+  const inv = await Invoice.findById(req.params.id);
+  if (!inv) return res.status(404).json({ message: 'Not found' });
+  const { description, amount, dueDate } = req.body;
+  if (amount !== undefined) {
+    if (!(Number(amount) > 0)) return res.status(400).json({ message: 'Amount must be more than 0' });
+    if (Number(amount) < inv.paid) return res.status(400).json({ message: `Amount cannot be less than the ${inv.paid} already paid` });
+    inv.amount = Number(amount);
+  }
+  if (description !== undefined) inv.description = description;
+  if (dueDate !== undefined) inv.dueDate = dueDate || undefined;
+  inv.status = inv.paid >= inv.amount ? 'paid' : inv.paid > 0 ? 'partial' : 'unpaid';
+  await inv.save();
+  await audit(req, 'INVOICE_UPDATE', 'Invoice', inv._id, { amount: inv.amount });
+  res.json(inv);
+}));
+
+// Delete an invoice together with its receipts
+router.delete('/invoices/:id', authorize('accountant'), wrap(async (req, res) => {
+  const inv = await Invoice.findById(req.params.id);
+  if (!inv) return res.status(404).json({ message: 'Not found' });
+  const removed = await Payment.deleteMany({ invoice: inv._id });
+  await inv.deleteOne();
+  await audit(req, 'INVOICE_DELETE', 'Invoice', inv._id, { amount: inv.amount, paid: inv.paid, receipts: removed.deletedCount });
+  res.json({ message: 'Invoice deleted' });
+}));
+
+// Cancel a wrongly recorded payment: the invoice balance is restored
+router.delete('/payments/:id', authorize('accountant'), wrap(async (req, res) => {
+  const pay = await Payment.findById(req.params.id);
+  if (!pay) return res.status(404).json({ message: 'Not found' });
+  const inv = await Invoice.findById(pay.invoice);
+  if (inv) {
+    inv.paid = Math.max(0, inv.paid - pay.amount);
+    inv.status = inv.paid >= inv.amount ? 'paid' : inv.paid > 0 ? 'partial' : 'unpaid';
+    await inv.save();
+  }
+  await pay.deleteOne();
+  await audit(req, 'PAYMENT_DELETE', 'Payment', pay._id, { receiptNo: pay.receiptNo, amount: pay.amount });
+  res.json({ message: 'Payment cancelled' });
+}));
+
 // Record a payment and issue a receipt number
 router.post('/payments', authorize('accountant'), wrap(async (req, res) => {
   const { invoiceId, amount, method } = req.body;
