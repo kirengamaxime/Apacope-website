@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 const {
   Student, Parent, User, Attendance, Assessment, FollowUp, Invoice, Payment, Announcement,
 } = require('../models');
-const { Student, Parent, User } = require('../models');
 const { protect, authorize, visibleStudentIds } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
 const { wrap, paging } = require('../utils/helpers');
@@ -45,17 +44,41 @@ router.post('/', authorize('dos', 'headteacher'), wrap(async (req, res) => {
   res.status(201).json(s);
 }));
 
+const EDITABLE = ['admissionNo', 'firstName', 'lastName', 'gender', 'dob', 'class', 'status'];
+
 router.put('/:id', authorize('dos', 'headteacher'), wrap(async (req, res) => {
-  const s = await Student.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+  const update = {};
+  EDITABLE.forEach((k) => { if (req.body[k] !== undefined) update[k] = req.body[k] === '' ? undefined : req.body[k]; });
+  const s = await Student.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
   if (!s) return res.status(404).json({ message: 'Not found' });
-  await audit(req, 'STUDENT_UPDATE', 'Student', s._id);
+  await audit(req, 'STUDENT_UPDATE', 'Student', s._id, { fields: Object.keys(update) });
   res.json(s);
 }));
 
-router.delete('/:id', authorize('headteacher'), wrap(async (req, res) => {
-  await Student.findByIdAndUpdate(req.params.id, { status: 'dropped' });
-  await audit(req, 'STUDENT_REMOVE', 'Student', req.params.id);
-  res.json({ message: 'Student marked as dropped' });
+/** Permanently delete a student with everything recorded about them. (To keep history, set status to Dropped/Transferred via Edit instead.) */
+router.delete('/:id', authorize('dos', 'headteacher'), wrap(async (req, res) => {
+  const s = await Student.findById(req.params.id);
+  if (!s) return res.status(404).json({ message: 'Not found' });
+  const id = s._id;
+  const ReportComment = mongoose.models.ReportComment;
+  await Promise.all([
+    Attendance.deleteMany({ student: id }),
+    Assessment.deleteMany({ student: id }),
+    FollowUp.deleteMany({ student: id }),
+    Invoice.deleteMany({ student: id }),
+    Payment.deleteMany({ student: id }),
+    Announcement.deleteMany({ forStudent: id }),
+    ReportComment ? ReportComment.deleteMany({ student: id }) : null,
+    Parent.updateMany({ children: id }, { $pull: { children: id } }),
+  ]);
+  // the learner's own login is no longer useful
+  if (s.user) {
+    const u = await User.findById(s.user);
+    if (u && u.role === 'student') await u.deleteOne();
+  }
+  await s.deleteOne();
+  await audit(req, 'STUDENT_DELETE', 'Student', id, { admissionNo: s.admissionNo, name: `${s.firstName} ${s.lastName}` });
+  res.json({ message: 'Student deleted' });
 }));
 
 /** Link a parent account to a student. Creates the Parent profile if needed. */
