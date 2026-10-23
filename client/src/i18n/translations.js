@@ -73,7 +73,7 @@ const rw = {
   'Overall average': 'Impuzandengo rusange',
   'Grade': 'Urwego',
   'Competent': 'Yujuje ubushobozi',
-  'Not yet competent': 'Ntarabugeraho',
+  'Not yet competent': 'Ntarabigeraho',
   'Excellent': 'Indashyikirwa',
   'Very good': 'Byiza cyane',
   'Good': 'Byiza',
