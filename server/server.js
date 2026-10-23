@@ -21,7 +21,10 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-app.use(cors({ origin: (process.env.CLIENT_URL || 'http://localhost:5173').split(','), credentials: true }));
+const origins = (process.env.CLIENT_URL || 'http://localhost:5173').split(',').map((o) => o.trim().replace(/\/$/, ''));
+app.use(cors({ origin: origins, credentials: true, exposedHeaders: ['Content-Disposition'] }));
+// Health check for the hosting platform
+app.get('/health', (req, res) => res.json({ ok: true }));
 app.use(compression()); // smaller responses for low-bandwidth users
 app.use(express.json({ limit: '1mb' }));
 app.use(mongoSanitize()); // blocks NoSQL operator injection ($, .)
@@ -48,6 +51,7 @@ app.use('/api/calendar', require('./routes/calendar'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/report-cards', require('./routes/reportcards'));
+app.use('/api/profiles', require('./routes/profiles'));
 
 // Serve the built React app in production
 const dist = path.join(__dirname, '..', 'client', 'dist');

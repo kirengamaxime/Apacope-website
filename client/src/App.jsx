@@ -3,7 +3,6 @@ import { useAuth } from './context/AuthContext';
 import Layout, { NAV } from './components/Layout';
 import { Spinner } from './components/ui';
 import Login, { ForgotPassword, ResetPassword } from './pages/Login';
-import ReportCards from './pages/ReportCards';
 import Dashboard from './pages/Dashboard';
 import Attendance from './pages/Attendance';
 import Monitoring from './pages/Monitoring';
@@ -19,6 +18,9 @@ import Academic from './pages/Academic';
 import Finance from './pages/Finance';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
+import ReportCards from './pages/ReportCards';
+import StudentProfile from './pages/StudentProfile';
+import StaffProfile from './pages/StaffProfile';
 import Users from './pages/Users';
 import AuditLogs from './pages/AuditLogs';
 import Account from './pages/Account';
@@ -64,11 +66,13 @@ export default function App() {
         {g('/timetable', <Timetable />)}
         {g('/calendar', <CalendarPage />)}
         {g('/students', <Students />)}
+        {g('/students/:id', <StudentProfile />)}
         {g('/academic', <Academic />)}
         {g('/finance', <Finance />)}
         {g('/inventory', <Inventory />)}
         {g('/reports', <Reports />)}
         {g('/users', <Users />)}
+        {g('/users/:id', <StaffProfile />)}
         {g('/audit', <AuditLogs />)}
         <Route path="/account" element={<Account />} />
       </Route>

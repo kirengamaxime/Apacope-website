@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Copy, Check } from 'lucide-react';
 import { api, qs } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -106,7 +107,7 @@ export default function Users() {
             <thead><tr className="border-b border-ink-200"><th className="th">Name</th><th className="th">Email</th><th className="th">Role</th><th className="th">Last login</th><th className="th">Status</th><th className="th" /></tr></thead>
             <tbody>
               {data.items.map((u) => (
-                <tr key={u._id} className="border-b border-ink-100"><td className="td font-medium">{u.name}</td><td className="td">{u.email}</td><td className="td">{ROLE_LABEL[u.role]}</td><td className="td text-ink-500">{u.lastLogin ? fmtDate(u.lastLogin) : 'Never'}</td>
+                <tr key={u._id} className="border-b border-ink-100"><td className="td font-medium"><Link className="hover:text-brand-700 hover:underline" to={`/users/${u._id}`}>{u.name}</Link></td><td className="td">{u.email}</td><td className="td">{ROLE_LABEL[u.role]}</td><td className="td text-ink-500">{u.lastLogin ? fmtDate(u.lastLogin) : 'Never'}</td>
                   <td className="td"><span className={`badge ${!u.active ? 'bg-red-100 text-red-700' : u.mustChangePassword ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-700'}`}>{!u.active ? 'Disabled' : u.mustChangePassword ? 'Not yet logged in' : 'Active'}</span></td>
                   <td className="td whitespace-nowrap text-right">{admin && <><button className="btn-ghost" onClick={() => setForm(u)}>Edit</button><button className="btn-ghost" onClick={() => reset(u)}>Reset password</button><button className="btn-danger" onClick={() => remove(u)}>Delete</button></>}</td></tr>
               ))}

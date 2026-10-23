@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import {
   LayoutDashboard, ClipboardCheck, TriangleAlert, PenLine, GraduationCap, Users, Library, Clapperboard, Megaphone,
   CalendarClock, CalendarDays, Settings2, Inbox, Wallet, Package, FileSpreadsheet, UserCog, ScrollText,
-   Menu, X, ChevronDown, LogOut, Globe, UserRound, FileText,
+  Menu, X, ChevronDown, LogOut, Globe, UserRound, FileText,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -16,7 +16,7 @@ export const NAV = [
   { to: '/my-attendance', label: 'Attendance', icon: ClipboardCheck, group: 'Academics', roles: ['student', 'parent'] },
   { to: '/marks', label: 'Marks entry', icon: PenLine, group: 'Academics', roles: ['trainer', 'dos'] },
   { to: '/results', label: 'Results', icon: GraduationCap, group: 'Academics', roles: ['student', 'parent', 'dos', 'headteacher', 'trainer'] },
-    { to: '/report-cards', label: 'Report cards', icon: FileText, group: 'Academics', roles: ['dos', 'headteacher'] },
+  { to: '/report-cards', label: 'Report cards', icon: FileText, group: 'Academics', roles: ['dos', 'headteacher'] },
   { to: '/students', label: 'Students', icon: Users, group: 'Academics', roles: ['dos', 'headteacher', 'trainer'] },
   { to: '/resources', label: 'Learning materials', icon: Library, group: 'Learning', roles: ['student', 'trainer', 'dos', 'headteacher'] },
   { to: '/entertainment', label: 'Edutainment', icon: Clapperboard, group: 'Learning', roles: ['student', 'trainer', 'dos', 'headteacher'] },
@@ -108,13 +108,13 @@ export default function Layout() {
   const [drawer, setDrawer] = useState(false);
   const { pathname } = useLocation();
   const items = NAV.filter((n) => n.roles === '*' || user.role === 'admin' || n.roles.includes(user.role));
-  const current = NAV.find((n) => n.to === pathname);
+  const current = NAV.find((n) => pathname === n.to || pathname.startsWith(`${n.to}/`));
   useEffect(() => { setDrawer(false); window.scrollTo(0, 0); }, [pathname]);
   const date = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
-    <div className="min-h-screen lg:pl-64">
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 lg:block"><Sidebar items={items} /></aside>
+    <div className="min-h-screen lg:pl-64 print:pl-0">
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 lg:block print:hidden"><Sidebar items={items} /></aside>
 
       {drawer && (
         <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true">
@@ -124,7 +124,7 @@ export default function Layout() {
         </div>
       )}
 
-      <header className="sticky top-0 z-10 flex h-14 items-center justify-between gap-3 border-b border-ink-200 bg-white/95 px-4 backdrop-blur sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-10 print:hidden flex h-14 items-center justify-between gap-3 border-b border-ink-200 bg-white/95 px-4 backdrop-blur sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
           <button className="rounded p-1.5 hover:bg-ink-100 lg:hidden" onClick={() => setDrawer(true)} aria-label="Open menu"><Menu className="h-5 w-5" /></button>
           <p className="truncate text-sm text-ink-500">

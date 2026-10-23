@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api, qs } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { PageHeader, Alert, Spinner, Empty, Modal, Pagination, StatusBadge, useFetch } from '../components/ui';
@@ -91,7 +92,7 @@ export default function Students() {
             <thead><tr className="border-b border-ink-200"><th className="th">Adm. no</th><th className="th">Name</th><th className="th">Gender</th><th className="th">Class</th><th className="th">Status</th><th className="th" /></tr></thead>
             <tbody>
               {data.items.map((s) => (
-                <tr key={s._id} className="border-b border-ink-100"><td className="td">{s.admissionNo}</td><td className="td font-medium">{s.lastName} {s.firstName}</td><td className="td">{s.gender}</td><td className="td">{s.class?.name}</td><td className="td"><StatusBadge status={s.status} /></td>
+                <tr key={s._id} className="border-b border-ink-100"><td className="td">{s.admissionNo}</td><td className="td font-medium"><Link className="hover:text-brand-700 hover:underline" to={`/students/${s._id}`}>{s.lastName} {s.firstName}</Link></td><td className="td">{s.gender}</td><td className="td">{s.class?.name}</td><td className="td"><StatusBadge status={s.status} /></td>
                   <td className="td whitespace-nowrap text-right">{manage && <><button className="btn-ghost" onClick={() => setForm(s)}>Edit</button><button className="btn-ghost" onClick={() => setLink(s)}>Link parent</button><button className="btn-danger" onClick={() => remove(s)}>Delete</button></>}</td></tr>
               ))}
             </tbody>
