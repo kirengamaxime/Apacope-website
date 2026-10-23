@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import {
   LayoutDashboard, ClipboardCheck, TriangleAlert, PenLine, GraduationCap, Users, Library, Clapperboard, Megaphone,
   CalendarClock, CalendarDays, Settings2, Inbox, Wallet, Package, FileSpreadsheet, UserCog, ScrollText,
-  Menu, X, ChevronDown, LogOut, Globe, UserRound, FileText,
+  Menu, X, ChevronDown, LogOut, Globe, UserRound, FileText, ListChecks,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -15,6 +15,7 @@ export const NAV = [
   { to: '/monitoring', label: 'Absence monitoring', icon: TriangleAlert, group: 'Academics', roles: ['trainer', 'dos', 'headteacher'] },
   { to: '/my-attendance', label: 'Attendance', icon: ClipboardCheck, group: 'Academics', roles: ['student', 'parent'] },
   { to: '/marks', label: 'Marks entry', icon: PenLine, group: 'Academics', roles: ['trainer', 'dos'] },
+  { to: '/marks-review', label: 'Marks review', icon: ListChecks, group: 'Academics', roles: ['dos', 'headteacher', 'trainer'] },
   { to: '/results', label: 'Results', icon: GraduationCap, group: 'Academics', roles: ['student', 'parent', 'dos', 'headteacher', 'trainer'] },
   { to: '/report-cards', label: 'Report cards', icon: FileText, group: 'Academics', roles: ['dos', 'headteacher'] },
   { to: '/students', label: 'Students', icon: Users, group: 'Academics', roles: ['dos', 'headteacher', 'trainer'] },

@@ -8,6 +8,7 @@ import Attendance from './pages/Attendance';
 import Monitoring from './pages/Monitoring';
 import MyAttendance from './pages/MyAttendance';
 import Marks from './pages/Marks';
+import MarksReview from './pages/MarksReview';
 import Results from './pages/Results';
 import Resources from './pages/Resources';
 import Announcements from './pages/Announcements';
@@ -58,6 +59,7 @@ export default function App() {
         {g('/monitoring', <Monitoring />)}
         {g('/my-attendance', <MyAttendance />)}
         {g('/marks', <Marks />)}
+        {g('/marks-review', <MarksReview />)}
         {g('/results', <Results />)}
         {g('/report-cards', <ReportCards />)}
         {g('/resources', <Resources category="lesson" />)}

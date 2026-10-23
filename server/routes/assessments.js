@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const { Assessment, Student, Assignment } = require('../models');
+const MarkSubmission = require('../models/MarkSubmission');
 const { protect, authorize, visibleStudentIds } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
 const { wrap, gradeFor, paging } = require('../utils/helpers');
@@ -11,11 +12,23 @@ async function canMark(user, classId, moduleId) {
   return !!(await Assignment.exists({ trainer: user._id, class: classId, module: moduleId }));
 }
 
+/** A trainer cannot change marks that are waiting for the DOS or already approved. The DOS and admin always can. */
+async function lockOf(user, classId, moduleId, termId) {
+  if (user.role !== 'trainer') return null;
+  const sub = await MarkSubmission.findOne({ class: classId, module: moduleId, term: termId || null });
+  return sub && ['submitted', 'approved'].includes(sub.status) ? sub : null;
+}
+const lockMessage = (sub) => (sub.status === 'approved'
+  ? 'These marks were approved by the DOS and are locked. Ask the DOS to return them if a correction is needed.'
+  : 'These marks were submitted to the DOS and are locked. Ask the DOS to return them if you need to change something.');
+
 /** Enter/update marks for a whole class in one go */
 router.post('/bulk', authorize('trainer', 'dos'), wrap(async (req, res) => {
   const { classId, moduleId, termId, type, title, maxScore, marks } = req.body;
   if (!classId || !moduleId || !type || !maxScore || !Array.isArray(marks)) return res.status(400).json({ message: 'Missing fields' });
   if (!(await canMark(req.user, classId, moduleId))) return res.status(403).json({ message: 'Not assigned to this class/module' });
+  const lock = await lockOf(req.user, classId, moduleId, termId);
+  if (lock) return res.status(423).json({ message: lockMessage(lock) });
   for (const m of marks) {
     if (m.score < 0 || m.score > maxScore) return res.status(400).json({ message: `Score out of range for a student (0-${maxScore})` });
   }
@@ -27,15 +40,22 @@ router.post('/bulk', authorize('trainer', 'dos'), wrap(async (req, res) => {
     },
   }));
   await Assessment.bulkWrite(ops);
+  // start tracking this class + module + term in the submission workflow (stays draft until the trainer submits)
+  await MarkSubmission.updateOne(
+    { class: classId, module: moduleId, term: termId || null },
+    { $setOnInsert: { status: 'draft', ...(req.user.role === 'trainer' ? { trainer: req.user._id } : {}) } },
+    { upsert: true },
+  ).catch(() => {});
   await audit(req, 'MARKS_SAVE', 'Assessment', classId, { moduleId, type, title, count: marks.length });
   res.json({ saved: marks.length });
 }));
 
-// Change one recorded mark
 router.put('/:id', authorize('trainer', 'dos'), wrap(async (req, res) => {
   const a = await Assessment.findById(req.params.id);
   if (!a) return res.status(404).json({ message: 'Not found' });
   if (!(await canMark(req.user, a.class, a.module))) return res.status(403).json({ message: 'Not allowed' });
+  const lock = await lockOf(req.user, a.class, a.module, a.term);
+  if (lock) return res.status(423).json({ message: lockMessage(lock) });
   const before = a.score;
   a.score = req.body.score;
   if (req.body.maxScore) a.maxScore = req.body.maxScore;
@@ -51,6 +71,8 @@ router.delete('/:id', authorize('trainer', 'dos'), wrap(async (req, res) => {
   const a = await Assessment.findById(req.params.id);
   if (!a) return res.status(404).json({ message: 'Not found' });
   if (!(await canMark(req.user, a.class, a.module))) return res.status(403).json({ message: 'Not allowed' });
+  const lock = await lockOf(req.user, a.class, a.module, a.term);
+  if (lock) return res.status(423).json({ message: lockMessage(lock) });
   await a.deleteOne();
   await audit(req, 'MARKS_DELETE', 'Assessment', a._id, { student: a.student, score: a.score });
   res.json({ message: 'Mark deleted' });
@@ -62,7 +84,13 @@ router.get('/results/:studentId', wrap(async (req, res) => {
   if (ids && !ids.some((i) => String(i) === req.params.studentId)) return res.status(403).json({ message: 'Not allowed' });
   const q = { student: req.params.studentId };
   if (req.query.term) q.term = req.query.term;
-  const rows = await Assessment.find(q).populate('module', 'name code').sort({ createdAt: 1 });
+  let rows = await Assessment.find(q).populate('module', 'name code').sort({ createdAt: 1 });
+  // learners and parents only see marks the DOS has approved (marks from before the approval step existed stay visible)
+  if (ids) {
+    const subs = await MarkSubmission.find({ class: { $in: [...new Set(rows.map((r) => String(r.class)))] } }).select('class module term status');
+    const blocked = new Set(subs.filter((x) => x.status !== 'approved').map((x) => `${x.class}|${x.module}|${x.term || ''}`));
+    rows = rows.filter((r) => !blocked.has(`${r.class}|${r.module?._id}|${r.term || ''}`));
+  }
   const byModule = {};
   rows.forEach((r) => {
     const id = String(r.module?._id);
