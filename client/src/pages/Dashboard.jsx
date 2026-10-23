@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import { ROLE_LABEL } from '../components/Layout';
 import { PageHeader, StatBand, Heatmap, StatusBadge, Spinner, Alert, Empty, useFetch, fmtMoney } from '../components/ui';
 
@@ -89,20 +90,21 @@ function AttendanceDashboard({ d }) {
 }
 
 function FamilyDashboard({ d }) {
-  if (!d.children?.length) return <div className="card text-sm text-ink-500">No learner is linked to your account yet. Please contact the school office.</div>;
+  const { t } = useLang();
+  if (!d.children?.length) return <div className="card text-sm text-ink-500">{t('No learner is linked to your account yet. Please contact the school office.')}</div>;
   return (
     <div className="grid gap-5 md:grid-cols-2">
       {d.children.map((c) => (
         <section key={c.id} className="rounded-lg border border-ink-200 bg-white">
           <header className="border-b border-ink-100 px-5 py-4"><h2>{c.name}</h2><p className="text-sm text-ink-500">{c.className}</p></header>
           <div className="p-5">
-            <div className="flex items-baseline justify-between"><p className="text-sm text-ink-500">Attendance this month</p><p className="font-serif text-3xl font-semibold tabular-nums">{c.attendancePct}%</p></div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-ink-100" role="img" aria-label={`Attendance ${c.attendancePct}%`}><div className={`h-full rounded-full ${c.attendancePct >= 90 ? 'bg-emerald-600' : c.attendancePct >= 75 ? 'bg-amber-500' : 'bg-brand-600'}`} style={{ width: `${c.attendancePct}%` }} /></div>
+            <div className="flex items-baseline justify-between"><p className="text-sm text-ink-500">{t('Attendance this month')}</p><p className="font-serif text-3xl font-semibold tabular-nums">{c.attendancePct}%</p></div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-ink-100" role="img" aria-label={`${t('Attendance')} ${c.attendancePct}%`}><div className={`h-full rounded-full ${c.attendancePct >= 90 ? 'bg-emerald-600' : c.attendancePct >= 75 ? 'bg-amber-500' : 'bg-brand-600'}`} style={{ width: `${c.attendancePct}%` }} /></div>
             <dl className="mt-5 divide-y divide-ink-100 text-sm">
-              <div className="flex justify-between py-2.5"><dt className="text-ink-500">Absences this month</dt><dd className="font-medium tabular-nums">{c.absences}</dd></div>
-              <div className="flex justify-between py-2.5"><dt className="text-ink-500">Fee balance</dt><dd className="font-medium tabular-nums">{fmtMoney(c.balance)}</dd></div>
+              <div className="flex justify-between py-2.5"><dt className="text-ink-500">{t('Absences this month')}</dt><dd className="font-medium tabular-nums">{c.absences}</dd></div>
+              <div className="flex justify-between py-2.5"><dt className="text-ink-500">{t('Fee balance')}</dt><dd className="font-medium tabular-nums">{fmtMoney(c.balance)}</dd></div>
             </dl>
-            <div className="mt-4 flex gap-2"><Link className="btn-ghost flex-1" to="/results">Results</Link><Link className="btn-ghost flex-1" to="/my-attendance">Attendance</Link></div>
+            <div className="mt-4 flex gap-2"><Link className="btn-ghost flex-1" to="/results">{t('Results')}</Link><Link className="btn-ghost flex-1" to="/my-attendance">{t('Attendance')}</Link></div>
           </div>
         </section>
       ))}
@@ -154,12 +156,13 @@ const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Good 
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { t } = useLang();
   const { data: d, loading, error } = useFetch(() => api.get('/dashboard'), []);
   if (loading) return <Spinner />;
   const staffAtt = d?.attendance;
   return (
     <>
-      <PageHeader title={`${greeting()}, ${user.name.split(' ')[0]}`} subtitle={ROLE_LABEL[user.role]} />
+      <PageHeader title={`${t(greeting())}, ${user.name.split(' ')[0]}`} subtitle={t(ROLE_LABEL[user.role])} />
       <Alert>{error}</Alert>
       {d && (
         <>

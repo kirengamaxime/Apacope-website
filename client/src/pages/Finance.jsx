@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api, qs } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import { PageHeader, Alert, Spinner, Empty, Modal, Pagination, StatusBadge, Stat, useFetch, fmtDate, fmtMoney, today } from '../components/ui';
 
 function PayForm({ invoice, onClose, onDone }) {
@@ -63,6 +64,7 @@ function BulkInvoice({ onClose, onDone }) {
 
 export default function Finance() {
   const { user, hasRole } = useAuth();
+  const { t } = useLang();
   const accountant = hasRole('accountant');
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState('');
@@ -87,19 +89,19 @@ export default function Finance() {
 
   return (
     <>
-      <PageHeader title="Fees and finance" subtitle="Invoices, receipts, payments and balances">
+      <PageHeader title={t('Fees and finance')} subtitle={t('Invoices, receipts, payments and balances')}>
         {accountant && <button className="btn-primary" onClick={() => setBulk(true)}>Invoice a class</button>}
       </PageHeader>
-      {sum.data && <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3"><Stat label="Billed" value={fmtMoney(sum.data.billed)} /><Stat label="Collected" value={fmtMoney(sum.data.collected)} tone="good" /><Stat label="Outstanding" value={fmtMoney(sum.data.outstanding)} tone="bad" /></div>}
+      {sum.data && <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3"><Stat label={t('Billed')} value={fmtMoney(sum.data.billed)} /><Stat label={t('Collected')} value={fmtMoney(sum.data.collected)} tone="good" /><Stat label={t('Outstanding')} value={fmtMoney(sum.data.outstanding)} tone="bad" /></div>}
       <Alert>{err}</Alert>
       <div className="card">
-        <div className="mb-3 flex items-center justify-between"><h2>Invoices</h2>
-          <select className="input w-40" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}><option value="">All</option><option value="unpaid">Unpaid</option><option value="partial">Partial</option><option value="paid">Paid</option></select>
+        <div className="mb-3 flex items-center justify-between"><h2>{t('Invoices')}</h2>
+          <select className="input w-40" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}><option value="">{t('All')}</option><option value="unpaid">{t('Unpaid')}</option><option value="partial">{t('Partial')}</option><option value="paid">{t('Paid')}</option></select>
         </div>
         {inv.loading ? <Spinner /> : !inv.data?.items?.length ? <Empty text="No invoices." /> : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px]">
-              <thead><tr className="border-b border-ink-200"><th className="th">Student</th><th className="th">Description</th><th className="th">Billed</th><th className="th">Paid</th><th className="th">Balance</th><th className="th">Status</th><th className="th" /></tr></thead>
+              <thead><tr className="border-b border-ink-200"><th className="th">{t('Student')}</th><th className="th">{t('Description')}</th><th className="th">{t('Billed')}</th><th className="th">{t('Paid')}</th><th className="th">{t('Balance')}</th><th className="th">{t('Status')}</th><th className="th" /></tr></thead>
               <tbody>
                 {inv.data.items.map((i) => (
                   <tr key={i._id} className="border-b border-ink-100"><td className="td font-medium">{i.student?.firstName} {i.student?.lastName}</td><td className="td">{i.description}</td><td className="td">{fmtMoney(i.amount)}</td><td className="td">{fmtMoney(i.paid)}</td><td className="td font-semibold">{fmtMoney(i.amount - i.paid)}</td><td className="td"><StatusBadge status={i.status} /></td>
@@ -112,10 +114,10 @@ export default function Finance() {
         <Pagination page={page} pages={inv.data?.pages} onChange={setPage} />
       </div>
       <div className="card mt-4">
-        <h2 className="mb-3">Receipts</h2>
+        <h2 className="mb-3">{t('Receipts')}</h2>
         <ul className="divide-y divide-ink-100 text-sm">
-          {(pay.data || []).slice(0, 15).map((p) => <li key={p._id} className="flex flex-wrap justify-between gap-2 py-2"><span className="font-medium">{p.receiptNo}</span><span>{p.student?.firstName} {p.student?.lastName}</span><span>{fmtMoney(p.amount)} - {p.method}</span><span className="text-ink-500">{fmtDate(p.createdAt)}</span>{accountant && <button className="btn-danger" onClick={() => removePayment(p)}>Cancel</button>}</li>)}
-          {!pay.data?.length && <li className="py-3 text-ink-500">No payments yet.</li>}
+          {(pay.data || []).slice(0, 15).map((p) => <li key={p._id} className="flex flex-wrap justify-between gap-2 py-2"><span className="font-medium">{p.receiptNo}</span><span>{p.student?.firstName} {p.student?.lastName}</span><span>{fmtMoney(p.amount)} - {t(p.method)}</span><span className="text-ink-500">{fmtDate(p.createdAt)}</span>{accountant && <button className="btn-danger" onClick={() => removePayment(p)}>Cancel</button>}</li>)}
+          {!pay.data?.length && <li className="py-3 text-ink-500">{t('No payments yet.')}</li>}
         </ul>
       </div>
       {payFor && <PayForm invoice={payFor} onClose={() => setPayFor(null)} onDone={() => { setPayFor(null); refresh(); }} />}

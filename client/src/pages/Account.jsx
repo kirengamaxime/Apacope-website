@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import { ROLE_LABEL } from '../components/Layout';
 import { PageHeader, Alert } from '../components/ui';
 
@@ -33,6 +34,7 @@ export function ForcePasswordChange() {
 
 export default function Account() {
   const { user } = useAuth();
+  const { t } = useLang();
   const [f, setF] = useState({ currentPassword: '', newPassword: '' });
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
@@ -42,17 +44,17 @@ export default function Account() {
   };
   return (
     <>
-      <PageHeader title="My account" />
+      <PageHeader title={t('My account')} />
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="card"><h2 className="mb-3">Profile</h2>
-          <dl className="space-y-2 text-sm"><div><dt className="label">Name</dt><dd>{user.name}</dd></div><div><dt className="label">Email</dt><dd>{user.email}</dd></div><div><dt className="label">Role</dt><dd>{ROLE_LABEL[user.role]}</dd></div></dl>
+        <div className="card"><h2 className="mb-3">{t('Profile')}</h2>
+          <dl className="space-y-2 text-sm"><div><dt className="label">{t('Name')}</dt><dd>{user.name}</dd></div><div><dt className="label">{t('Email')}</dt><dd>{user.email}</dd></div><div><dt className="label">{t('Role')}</dt><dd>{t(ROLE_LABEL[user.role])}</dd></div></dl>
         </div>
-        <div className="card"><h2 className="mb-3">Change password</h2>
+        <div className="card"><h2 className="mb-3">{t('Change password')}</h2>
           <Alert>{error}</Alert><Alert kind="ok">{msg}</Alert>
           <form onSubmit={submit} className="space-y-3">
-            <div><label className="label">Current password</label><input type="password" required className="input" value={f.currentPassword} onChange={(e) => setF({ ...f, currentPassword: e.target.value })} /></div>
-            <div><label className="label">New password (min 8)</label><input type="password" minLength={8} required className="input" value={f.newPassword} onChange={(e) => setF({ ...f, newPassword: e.target.value })} /></div>
-            <button className="btn-primary">Update password</button>
+            <div><label className="label">{t('Current password')}</label><input type="password" required className="input" value={f.currentPassword} onChange={(e) => setF({ ...f, currentPassword: e.target.value })} /></div>
+            <div><label className="label">{t('New password (min 8)')}</label><input type="password" minLength={8} required className="input" value={f.newPassword} onChange={(e) => setF({ ...f, newPassword: e.target.value })} /></div>
+            <button className="btn-primary">{t('Update password')}</button>
           </form>
         </div>
       </div>

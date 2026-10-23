@@ -1,21 +1,25 @@
 import { useState } from 'react';
 import { api, qs } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import { PageHeader, Alert, Spinner, Modal, useFetch } from '../components/ui';
 
 const DAYS = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const TYPE_STYLE = { lesson: 'border-l-brand-600 bg-white', practical: 'border-l-emerald-600 bg-emerald-50/40', exam: 'border-l-amber-500 bg-amber-50/60' };
 
-function SlotForm({ onClose, onDone }) {
+function SlotForm({ slot, onClose, onDone }) {
+  const edit = !!slot;
   const classes = useFetch(() => api.get('/academic/classes'), []);
   const modules = useFetch(() => api.get('/academic/modules'), []);
   const trainers = useFetch(() => api.get('/users/lookup?role=trainer'), []);
-  const [f, setF] = useState({ class: '', module: '', trainer: '', day: 1, startTime: '08:00', endTime: '10:00', room: '', type: 'lesson' });
+  const [f, setF] = useState(edit
+    ? { class: slot.class?._id || '', module: slot.module?._id || '', trainer: slot.trainer?._id || '', day: slot.day, startTime: slot.startTime || '', endTime: slot.endTime || '', room: slot.room || '', type: slot.type }
+    : { class: '', module: '', trainer: '', day: 1, startTime: '08:00', endTime: '10:00', room: '', type: 'lesson' });
   const [error, setError] = useState('');
   const up = (k) => (e) => setF({ ...f, [k]: e.target.value });
-  const submit = async (e) => { e.preventDefault(); try { await api.post('/calendar/timetable', { ...f, day: Number(f.day) }); onDone(); } catch (er) { setError(er.message); } };
+  const submit = async (e) => { e.preventDefault(); try { const body = { ...f, day: Number(f.day) }; if (edit) await api.put(`/calendar/timetable/${slot._id}`, body); else await api.post('/calendar/timetable', body); onDone(); } catch (er) { setError(er.message); } };
   return (
-    <Modal title="Add lesson / practical / exam" onClose={onClose}>
+    <Modal title={edit ? 'Edit lesson / practical / exam' : 'Add lesson / practical / exam'} onClose={onClose}>
       <Alert>{error}</Alert>
       <form onSubmit={submit} className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
@@ -38,25 +42,26 @@ function SlotForm({ onClose, onDone }) {
 
 export default function Timetable() {
   const { user, hasRole } = useAuth();
+  const { t: tr } = useLang();
   const manage = hasRole('dos', 'headteacher');
   const classes = useFetch(() => api.get('/academic/my-classes'), []);
   const [classId, setClassId] = useState('');
   const [mineOnly, setMineOnly] = useState(user.role === 'trainer');
   const { data, loading, error, reload } = useFetch(() => api.get(`/calendar/timetable${qs({ class: classId, mine: mineOnly || undefined })}`), [classId, mineOnly]);
-  const [add, setAdd] = useState(false);
+  const [form, setForm] = useState(null); // null | {} (add) | slot (edit)
   const remove = async (t) => { if (window.confirm('Remove this slot? The class will be notified.')) { await api.del(`/calendar/timetable/${t._id}`); reload(); } };
   const showClassFilter = !['student'].includes(user.role);
 
   return (
     <>
-      <PageHeader title="Timetable" subtitle="Lessons, practical sessions and exams">
+      <PageHeader title={tr('Timetable')} subtitle={tr('Lessons, practical sessions and exams')}>
         {showClassFilter && (
           <select className="input w-48" value={classId} onChange={(e) => setClassId(e.target.value)}>
-            <option value="">All classes</option>{(classes.data?.classes || []).map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
+            <option value="">{tr('All classes')}</option>{(classes.data?.classes || []).map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
           </select>
         )}
         {user.role === 'trainer' && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={mineOnly} onChange={(e) => setMineOnly(e.target.checked)} /> My lessons only</label>}
-        {manage && <button className="btn-primary" onClick={() => setAdd(true)}>Add slot</button>}
+        {manage && <button className="btn-primary" onClick={() => setForm({})}>Add slot</button>}
       </PageHeader>
       <Alert>{error}</Alert>
       {loading ? <Spinner /> : (
@@ -65,15 +70,15 @@ export default function Timetable() {
             const slots = (data || []).filter((t) => t.day === i + 1);
             return (
               <div key={d} className="card">
-                <h2 className="mb-2">{d}</h2>
-                {!slots.length && <p className="text-sm text-ink-500">No sessions.</p>}
+                <h2 className="mb-2">{tr(d)}</h2>
+                {!slots.length && <p className="text-sm text-ink-500">{tr('No sessions.')}</p>}
                 <ul className="space-y-2">
                   {slots.map((t) => (
                     <li key={t._id} className={`rounded-lg border border-l-4 border-ink-200 p-2.5 text-sm ${TYPE_STYLE[t.type]}`}>
-                      <div className="flex items-start justify-between gap-2"><p className="font-semibold">{t.startTime} - {t.endTime}</p><span className="badge bg-ink-100 capitalize text-ink-700">{t.type}</span></div>
+                      <div className="flex items-start justify-between gap-2"><p className="font-semibold">{t.startTime} - {t.endTime}</p><span className="badge bg-ink-100 capitalize text-ink-700">{tr(t.type)}</span></div>
                       <p>{t.module?.name}</p>
                       <p className="text-xs text-ink-500">{t.class?.name} - {t.trainer?.name}{t.room ? ` - ${t.room}` : ''}</p>
-                      {manage && <button className="mt-1 text-xs text-red-600 hover:underline" onClick={() => remove(t)}>Remove</button>}
+                      {manage && <div className="mt-1 flex gap-3 text-xs"><button className="text-brand-700 hover:underline" onClick={() => setForm(t)}>Edit</button><button className="text-red-600 hover:underline" onClick={() => remove(t)}>Remove</button></div>}
                     </li>
                   ))}
                 </ul>
@@ -82,7 +87,7 @@ export default function Timetable() {
           })}
         </div>
       )}
-      {add && <SlotForm onClose={() => setAdd(false)} onDone={() => { setAdd(false); reload(); }} />}
+      {form && <SlotForm slot={form._id ? form : null} onClose={() => setForm(null)} onDone={() => { setForm(null); reload(); }} />}
     </>
   );
 }

@@ -6,6 +6,9 @@ import {
   Menu, X, ChevronDown, LogOut, Globe, UserRound, FileText, ListChecks,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
+import LanguageSwitcher from './LanguageSwitcher';
+import { formatDate } from '../i18n/dateLocale';
 
 export const GROUPS = ['Overview', 'Academics', 'Learning', 'School', 'Finance and stores', 'Administration'];
 
@@ -41,6 +44,7 @@ export const ROLE_LABEL = {
 const initials = (name = '') => name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 
 function Sidebar({ items, onNavigate }) {
+  const { t } = useLang();
   const groups = GROUPS.map((g) => ({ name: g, items: items.filter((n) => n.group === g) })).filter((g) => g.items.length);
   return (
     <nav className="flex h-full flex-col bg-ink-900 text-white" aria-label="Portal">
@@ -51,7 +55,7 @@ function Sidebar({ items, onNavigate }) {
       <div className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
         {groups.map((g) => (
           <div key={g.name}>
-            {g.name !== 'Overview' && <p className="mb-1.5 px-3 text-xs font-medium text-white/45">{g.name}</p>}
+            {g.name !== 'Overview' && <p className="mb-1.5 px-3 text-xs font-medium text-white/45">{t(g.name)}</p>}
             <ul className="space-y-0.5">
               {g.items.map(({ to, label, icon: Icon, end }) => (
                 <li key={to}>
@@ -60,7 +64,7 @@ function Sidebar({ items, onNavigate }) {
                     {({ isActive }) => (
                       <>
                         {isActive && <span className="absolute inset-y-1.5 left-0 w-0.5 rounded bg-brand-500" aria-hidden="true" />}
-                        <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />{label}
+                        <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />{t(label)}
                       </>
                     )}
                   </NavLink>
@@ -76,6 +80,7 @@ function Sidebar({ items, onNavigate }) {
 
 function UserMenu() {
   const { user, logout } = useAuth();
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const navigate = useNavigate();
@@ -89,15 +94,15 @@ function UserMenu() {
     <div className="relative" ref={ref}>
       <button onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="menu" className="flex items-center gap-2.5 rounded-md py-1 pl-1 pr-2 hover:bg-ink-100">
         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ink-900 text-xs font-semibold text-white">{initials(user.name)}</span>
-        <span className="hidden text-left leading-tight sm:block"><span className="block text-sm font-semibold">{user.name}</span><span className="block text-xs text-ink-500">{ROLE_LABEL[user.role]}</span></span>
+        <span className="hidden text-left leading-tight sm:block"><span className="block text-sm font-semibold">{user.name}</span><span className="block text-xs text-ink-500">{t(ROLE_LABEL[user.role])}</span></span>
         <ChevronDown className="h-4 w-4 text-ink-500" aria-hidden="true" />
       </button>
       {open && (
         <div role="menu" className="absolute right-0 z-30 mt-2 w-56 overflow-hidden rounded-lg border border-ink-200 bg-white py-1 shadow-lg">
-          <div className="border-b border-ink-100 px-3 py-2 sm:hidden"><p className="text-sm font-semibold">{user.name}</p><p className="text-xs text-ink-500">{ROLE_LABEL[user.role]}</p></div>
-          <button role="menuitem" className={item} onClick={() => { setOpen(false); navigate('/account'); }}><UserRound className="h-4 w-4" />My account</button>
-          <Link role="menuitem" className={item} to="/" onClick={() => setOpen(false)}><Globe className="h-4 w-4" />School website</Link>
-          <button role="menuitem" className={`${item} border-t border-ink-100 text-brand-700`} onClick={() => { logout(); navigate('/login'); }}><LogOut className="h-4 w-4" />Sign out</button>
+          <div className="border-b border-ink-100 px-3 py-2 sm:hidden"><p className="text-sm font-semibold">{user.name}</p><p className="text-xs text-ink-500">{t(ROLE_LABEL[user.role])}</p></div>
+          <button role="menuitem" className={item} onClick={() => { setOpen(false); navigate('/account'); }}><UserRound className="h-4 w-4" />{t('My account')}</button>
+          <Link role="menuitem" className={item} to="/" onClick={() => setOpen(false)}><Globe className="h-4 w-4" />{t('School website')}</Link>
+          <button role="menuitem" className={`${item} border-t border-ink-100 text-brand-700`} onClick={() => { logout(); navigate('/login'); }}><LogOut className="h-4 w-4" />{t('Sign out')}</button>
         </div>
       )}
     </div>
@@ -106,12 +111,13 @@ function UserMenu() {
 
 export default function Layout() {
   const { user } = useAuth();
+  const { t } = useLang();
   const [drawer, setDrawer] = useState(false);
   const { pathname } = useLocation();
   const items = NAV.filter((n) => n.roles === '*' || user.role === 'admin' || n.roles.includes(user.role));
   const current = NAV.find((n) => pathname === n.to || pathname.startsWith(`${n.to}/`));
   useEffect(() => { setDrawer(false); window.scrollTo(0, 0); }, [pathname]);
-  const date = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const date = formatDate(new Date(), true); // follows the chosen language
 
   return (
     <div className="min-h-screen lg:pl-64 print:pl-0">
@@ -129,11 +135,12 @@ export default function Layout() {
         <div className="flex min-w-0 items-center gap-3">
           <button className="rounded p-1.5 hover:bg-ink-100 lg:hidden" onClick={() => setDrawer(true)} aria-label="Open menu"><Menu className="h-5 w-5" /></button>
           <p className="truncate text-sm text-ink-500">
-            {current ? <><span className="hidden sm:inline">{current.group} / </span><span className="font-medium text-ink-900">{current.label}</span></> : <span className="font-medium text-ink-900">My account</span>}
+            {current ? <><span className="hidden sm:inline">{t(current.group)} / </span><span className="font-medium text-ink-900">{t(current.label)}</span></> : <span className="font-medium text-ink-900">{t('My account')}</span>}
           </p>
         </div>
         <div className="flex items-center gap-4">
           <span className="hidden text-sm text-ink-500 md:block">{date}</span>
+          <LanguageSwitcher />
           <UserMenu />
         </div>
       </header>

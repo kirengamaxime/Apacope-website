@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useLang } from '../context/LanguageContext';
+import { formatDate } from '../i18n/dateLocale';
 import { Loader2, Inbox, CircleAlert, CircleCheck, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 export function PageHeader({ title, subtitle, children }) {
@@ -44,19 +46,21 @@ export function StatBand({ items }) {
   );
 }
 
-export function Spinner({ text = 'Loading' }) {
+export function Spinner({ text }) {
+  const { t } = useLang();
   return (
     <div className="flex items-center justify-center gap-2 py-12 text-sm text-ink-500" role="status">
-      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> {text}
+      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> {text || t('Loading')}
     </div>
   );
 }
 
-export function Empty({ text = 'Nothing to show yet.' }) {
+export function Empty({ text }) {
+  const { t } = useLang();
   return (
     <div className="flex flex-col items-center gap-2 py-12 text-center text-sm text-ink-500">
       <Inbox className="h-6 w-6 text-ink-300" aria-hidden="true" />
-      <p>{text}</p>
+      <p>{t(text || 'Nothing to show yet.')}</p>
     </div>
   );
 }
@@ -74,19 +78,21 @@ export function Alert({ kind = 'error', children }) {
 }
 
 export function Pagination({ page, pages, onChange }) {
+  const { t } = useLang();
   if (!pages || pages <= 1) return null;
   return (
     <nav className="mt-5 flex items-center justify-between text-sm" aria-label="Pagination">
-      <span className="text-ink-500">Page {page} of {pages}</span>
+      <span className="text-ink-500">{t('Page {page} of {pages}', { page, pages })}</span>
       <div className="flex gap-2">
-        <button className="btn-ghost px-3" disabled={page <= 1} onClick={() => onChange(page - 1)}><ChevronLeft className="h-4 w-4" aria-hidden="true" />Previous</button>
-        <button className="btn-ghost px-3" disabled={page >= pages} onClick={() => onChange(page + 1)}>Next<ChevronRight className="h-4 w-4" aria-hidden="true" /></button>
+        <button className="btn-ghost px-3" disabled={page <= 1} onClick={() => onChange(page - 1)}><ChevronLeft className="h-4 w-4" aria-hidden="true" />{t('Previous')}</button>
+        <button className="btn-ghost px-3" disabled={page >= pages} onClick={() => onChange(page + 1)}>{t('Next')}<ChevronRight className="h-4 w-4" aria-hidden="true" /></button>
       </div>
     </nav>
   );
 }
 
 export function Modal({ title, onClose, children }) {
+  const { t } = useLang();
   useEffect(() => {
     const h = (e) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', h);
@@ -97,7 +103,7 @@ export function Modal({ title, onClose, children }) {
       <div role="dialog" aria-modal="true" aria-label={title} className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-xl bg-white shadow-2xl sm:max-w-lg sm:rounded-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-ink-200 px-5 py-3.5">
           <h2>{title}</h2>
-          <button className="rounded p-1 text-ink-500 hover:bg-ink-100 hover:text-ink-900" onClick={onClose} aria-label="Close"><X className="h-5 w-5" /></button>
+          <button className="rounded p-1 text-ink-500 hover:bg-ink-100 hover:text-ink-900" onClick={onClose} aria-label={t('Close')}><X className="h-5 w-5" /></button>
         </div>
         <div className="overflow-y-auto p-5">{children}</div>
       </div>
@@ -123,8 +129,9 @@ const STATUS = {
   dropped: ['bg-brand-50 text-brand-700', 'bg-brand-600'],
 };
 export function StatusBadge({ status }) {
+  const { t } = useLang();
   const [box, dot] = STATUS[status] || ['bg-ink-100 text-ink-700', 'bg-ink-500'];
-  return <span className={`badge ${box}`}><i className={`h-1.5 w-1.5 rounded-full ${dot}`} aria-hidden="true" />{status}</span>;
+  return <span className={`badge ${box}`}><i className={`h-1.5 w-1.5 rounded-full ${dot}`} aria-hidden="true" />{t(status)}</span>;
 }
 
 /**
@@ -189,6 +196,7 @@ export function useFetch(fn, deps = []) {
   return { data, loading, error, reload: () => setTick((t) => t + 1), setData };
 }
 
-export const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '');
+// The date language follows the language the user picked (set by LanguageProvider)
+export const fmtDate = (d) => (d ? formatDate(d) : '');
 export const fmtMoney = (n) => `${Number(n || 0).toLocaleString('en-US')} RWF`;
 export const today = () => new Date().toISOString().slice(0, 10);
