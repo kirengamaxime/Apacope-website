@@ -6,6 +6,7 @@ import { useEffect } from 'react';
  * revealing the dashboard that is already waiting behind them.
  *
  * Login.jsx calls markIntro() after a successful sign-in; Layout.jsx shows <DoorIntro /> once and clears the flag.
+ * To replay it any time, open /dashboard?intro
  */
 const KEY = 'apacope-intro';
 const LOGO = '/logo.png'; // replace public/logo.png to change the picture on the doors
@@ -14,7 +15,7 @@ export const markIntro = () => { try { sessionStorage.setItem(KEY, '1'); } catch
 export const clearIntro = () => { try { sessionStorage.removeItem(KEY); } catch { /* ignore */ } };
 export const introPending = () => {
   try {
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return false; // respect the visitor's setting
+    if (/[?&]intro\b/.test(window.location.search)) return true; // open /dashboard?intro to replay it any time
     return sessionStorage.getItem(KEY) === '1';
   } catch { return false; }
 };
