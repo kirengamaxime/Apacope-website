@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 import { Alert } from '../components/ui';
+import { markIntro, clearIntro } from '../components/DoorIntro';
 
 function Shell({ title, lead, children }) {
   return (
@@ -48,7 +49,7 @@ export default function Login() {
   const submit = async (e) => {
     e.preventDefault();
     setBusy(true); setError('');
-    try { await login(email, password); navigate('/dashboard'); } catch (err) { setError(err.message); } finally { setBusy(false); }
+    try { markIntro(); await login(email, password); navigate('/dashboard'); } catch (err) { clearIntro(); setError(err.message); } finally { setBusy(false); }
   };
 
   return (
