@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import LanguageSwitcher from './LanguageSwitcher';
+import DoorIntro, { introPending, clearIntro } from './DoorIntro';
 import { formatDate } from '../i18n/dateLocale';
 
 export const GROUPS = ['Overview', 'Academics', 'Learning', 'School', 'Finance and stores', 'Administration'];
@@ -113,6 +114,8 @@ export default function Layout() {
   const { user } = useAuth();
   const { t } = useLang();
   const [drawer, setDrawer] = useState(false);
+  const [intro, setIntro] = useState(introPending); // the logo doors, shown once right after sign-in
+  useEffect(() => { clearIntro(); }, []);
   const { pathname } = useLocation();
   const items = NAV.filter((n) => n.roles === '*' || user.role === 'admin' || n.roles.includes(user.role));
   const current = NAV.find((n) => pathname === n.to || pathname.startsWith(`${n.to}/`));
@@ -148,6 +151,7 @@ export default function Layout() {
       <main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <div className="mx-auto max-w-7xl"><Outlet /></div>
       </main>
+      {intro && <DoorIntro onDone={() => setIntro(false)} />}
     </div>
   );
 }
