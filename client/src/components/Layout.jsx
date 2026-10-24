@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import {
   LayoutDashboard, ClipboardCheck, TriangleAlert, PenLine, GraduationCap, Users, Library, Clapperboard, Megaphone,
   CalendarClock, CalendarDays, Settings2, Inbox, Wallet, Package, FileSpreadsheet, UserCog, ScrollText,
-  Menu, X, ChevronDown, LogOut, Globe, UserRound, FileText, ListChecks,
+  Menu, X, ChevronDown, LogOut, Globe, UserRound, FileText, ListChecks, NotebookPen,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
@@ -23,6 +23,7 @@ export const NAV = [
   { to: '/results', label: 'Results', icon: GraduationCap, group: 'Academics', roles: ['student', 'parent', 'dos', 'headteacher', 'trainer'] },
   { to: '/report-cards', label: 'Report cards', icon: FileText, group: 'Academics', roles: ['dos', 'headteacher'] },
   { to: '/students', label: 'Students', icon: Users, group: 'Academics', roles: ['dos', 'headteacher', 'trainer'] },
+  { to: '/assignments', label: 'Assignments', icon: NotebookPen, group: 'Learning', roles: ['student', 'trainer', 'dos', 'headteacher'] },
   { to: '/resources', label: 'Learning materials', icon: Library, group: 'Learning', roles: ['student', 'trainer', 'dos', 'headteacher'] },
   { to: '/entertainment', label: 'Edutainment', icon: Clapperboard, group: 'Learning', roles: ['student', 'trainer', 'dos', 'headteacher'] },
   { to: '/announcements', label: 'Announcements', icon: Megaphone, group: 'School', roles: '*' },

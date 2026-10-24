@@ -44,6 +44,7 @@ app.use('/api/students', require('./routes/students'));
 app.use('/api/attendance', require('./routes/attendance'));
 app.use('/api/assessments', require('./routes/assessments'));
 app.use('/api/mark-submissions', require('./routes/marksubmissions'));
+app.use('/api/online-assignments', require('./routes/onlineassignments'));
 app.use('/api/resources', require('./routes/resources'));
 app.use('/api/announcements', require('./routes/announcements'));
 app.use('/api/finance', require('./routes/finance'));

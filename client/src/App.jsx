@@ -10,6 +10,9 @@ import MyAttendance from './pages/MyAttendance';
 import Marks from './pages/Marks';
 import MarksReview from './pages/MarksReview';
 import Results from './pages/Results';
+import Assignments from './pages/Assignments';
+import AssignmentForm from './pages/AssignmentForm';
+import AssignmentDetail from './pages/AssignmentDetail';
 import Resources from './pages/Resources';
 import Announcements from './pages/Announcements';
 import Timetable from './pages/Timetable';
@@ -61,6 +64,10 @@ export default function App() {
         {g('/marks', <Marks />)}
         {g('/marks-review', <MarksReview />)}
         {g('/results', <Results />)}
+        {g('/assignments', <Assignments />)}
+        <Route path="/assignments/new" element={<Guard path="/assignments"><AssignmentForm /></Guard>} />
+        <Route path="/assignments/:id/edit" element={<Guard path="/assignments"><AssignmentForm /></Guard>} />
+        <Route path="/assignments/:id" element={<Guard path="/assignments"><AssignmentDetail /></Guard>} />
         {g('/report-cards', <ReportCards />)}
         {g('/resources', <Resources category="lesson" />)}
         {g('/entertainment', <Resources category="entertainment" />)}
