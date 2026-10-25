@@ -75,7 +75,7 @@ function cleanQuestions(list) {
   });
 }
 
-/** Learners never receive the answer key until their marks are approved */
+/** Learners never receive the answer key until their own work has been marked */
 function forLearner(a, showKey) {
   const o = a.toObject();
   o.questions = o.questions.map((q) => { if (!showKey) delete q.correct; return q; });
@@ -108,7 +108,7 @@ router.get('/', wrap(async (req, res) => {
     };
     if (me) {
       const s = mine[0];
-      const seen = a.marksStatus === 'approved' && s?.marked;
+      const seen = !!s?.marked; // the learner sees the marks as soon as they are marked, no need to wait for the DOS
       return { ...base, mine: { status: s?.status || 'new', marked: !!s?.marked, total: seen ? s.total : null } };
     }
     return { ...base, recipients: a.students.length, submitted: mine.filter((s) => s.status === 'submitted').length, marked: mine.filter((s) => s.marked).length };
@@ -145,7 +145,7 @@ router.get('/:id', wrap(async (req, res) => {
     const me = await studentOf(req.user);
     if (!me || !a.students.some((s) => same(s._id, me._id)) || a.status !== 'published') return res.status(403).json({ message: 'This assignment is not for you.' });
     const sub = await OnlineSubmission.findOne({ assignment: a._id, student: me._id });
-    const approved = a.marksStatus === 'approved' && sub?.marked;
+    const approved = !!sub?.marked; // marked = released to the learner (the DOS approval only controls the entry in Results)
     return res.json({
       role: 'student',
       assignment: forLearner(a, approved),
@@ -245,7 +245,7 @@ router.post('/:id/submit', wrap(async (req, res) => {
   sub.total = round(sub.scores.reduce((t, s) => t + s.score, 0));
   sub.status = 'submitted';
   sub.submittedAt = new Date();
-  // an assignment made only of multiple-choice questions is fully marked by the system; the trainer just checks it
+  // an assignment made only of multiple-choice questions is fully marked by the system; the learner can see the marks at once
   sub.marked = a.questions.every((q) => q.type === 'choice');
   sub.markedAt = sub.marked ? new Date() : undefined;
   await sub.save();

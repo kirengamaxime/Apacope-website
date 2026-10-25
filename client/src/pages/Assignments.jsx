@@ -36,12 +36,12 @@ function LearnerList({ items }) {
           <Link key={a._id} to={`/assignments/${a._id}`} className="card block transition-shadow hover:shadow-md">
             <div className="flex items-start justify-between gap-2">
               <div><h2>{a.title}</h2><p className="text-sm text-ink-500">{a.module?.name} - {a.trainer?.name} - {TYPE_LABEL[a.type] || 'Formative'}</p></div>
-              {a.mine.total !== null ? <span className="badge bg-emerald-50 text-emerald-700">Marks: {a.mine.total}/{a.points}</span> : <span className={`badge ${cls}`}>{label}</span>}
+              {a.mine.total !== null ? <span className="badge bg-emerald-50 text-emerald-700">Marks ready</span> : <span className={`badge ${cls}`}>{label}</span>}
             </div>
             <p className="mt-3 text-sm text-ink-500">{a.questionCount} question{a.questionCount === 1 ? '' : 's'} - {a.points} points{a.dueDate ? ` - due ${fmtDate(a.dueDate)}` : ''}</p>
             {!done && isLate(a) && <p className="mt-1 text-sm font-medium text-brand-700">The deadline has passed</p>}
-            {done && a.mine.total === null && <p className="mt-1 text-sm text-ink-500">Your marks will appear here once your trainer has marked it and the DOS has approved them.</p>}
-            <p className="mt-3 text-sm font-semibold text-brand-700">{done ? 'Open' : a.mine.status === 'started' ? 'Continue' : 'Start'} &rarr;</p>
+            {done && a.mine.total === null && <p className="mt-1 text-sm text-ink-500">Your marks will appear here as soon as your trainer has marked it.</p>}
+            <p className="mt-3 text-sm font-semibold text-brand-700">{a.mine.total !== null ? 'See my marks' : done ? 'Open' : a.mine.status === 'started' ? 'Continue' : 'Start'} &rarr;</p>
           </Link>
         );
       })}

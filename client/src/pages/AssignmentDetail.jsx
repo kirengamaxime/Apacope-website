@@ -16,6 +16,7 @@ function LearnerView({ data, reload }) {
   const [saved, setSaved] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [reveal, setReveal] = useState(false); // the learner presses "See my marks" to look at them
   const submitted = mine.status === 'submitted';
   const closed = !submitted && (a.marksStatus !== 'open' || isLate(a));
   const payload = () => a.questions.map((q) => ({ question: q._id, answer: answers[q._id] ?? '' }));
@@ -43,7 +44,8 @@ function LearnerView({ data, reload }) {
   };
 
   const scoreOf = (qid) => (mine.scores || []).find((s) => String(s.question) === String(qid));
-  const pct = mine.marksReleased && points ? Math.round((mine.total / points) * 1000) / 10 : null;
+  const shown = mine.marksReleased && reveal;
+  const pct = shown && points ? Math.round((mine.total / points) * 1000) / 10 : null;
 
   return (
     <>
@@ -52,14 +54,20 @@ function LearnerView({ data, reload }) {
       </PageHeader>
       <Alert>{error}</Alert>
       <div className="mx-auto max-w-3xl space-y-4">
-        {mine.marksReleased && (
+        {mine.marksReleased && !reveal && (
+          <div className="card flex flex-wrap items-center justify-between gap-3 border-emerald-200 bg-emerald-50/50">
+            <p className="text-sm text-ink-700">{mine.status === 'submitted' ? 'Your assignment has been marked.' : 'Your marks are ready.'}</p>
+            <button className="btn-primary" onClick={() => setReveal(true)}>See my marks</button>
+          </div>
+        )}
+        {shown && (
           <div className="card flex flex-wrap items-center gap-6 border-emerald-200 bg-emerald-50/50">
             <div><p className="label">Your marks</p><p className="text-3xl font-bold">{mine.total}/{points}</p></div>
             <div><p className="label">Percentage</p><p className="text-3xl font-bold text-brand-600">{pct}%</p></div>
             {mine.feedback && <p className="min-w-[200px] flex-1 text-sm text-ink-700"><b>Trainer's feedback:</b> {mine.feedback}</p>}
           </div>
         )}
-        {submitted && !mine.marksReleased && <Alert kind="ok">{`You sent this assignment on ${fmtDate(mine.submittedAt)}. Your marks will appear here once your trainer has marked it and the DOS has approved the marks.`}</Alert>}
+        {submitted && !mine.marksReleased && <Alert kind="ok">{`You sent this assignment on ${fmtDate(mine.submittedAt)}. Your marks will appear here as soon as your trainer has marked it.`}</Alert>}
         {closed && <Alert>{a.marksStatus !== 'open' ? 'This assignment is closed.' : 'The deadline has passed. Ask your trainer if you still need to send it.'}</Alert>}
         {a.instructions && <div className="card text-sm text-ink-700"><p className="label">Instructions</p><p className="whitespace-pre-line">{a.instructions}</p></div>}
 
@@ -68,15 +76,15 @@ function LearnerView({ data, reload }) {
           const mineAnswer = answers[q._id] ?? '';
           return (
             <div key={q._id} className="card">
-              <div className="mb-2 flex items-start justify-between gap-3"><p className="font-semibold">{i + 1}. <span className="whitespace-pre-line font-medium">{q.text}</span></p><span className="shrink-0 text-sm text-ink-500">{mine.marksReleased ? `${s?.score ?? 0}/${q.points}` : `${q.points} pt${q.points === 1 ? '' : 's'}`}</span></div>
+              <div className="mb-2 flex items-start justify-between gap-3"><p className="font-semibold">{i + 1}. <span className="whitespace-pre-line font-medium">{q.text}</span></p><span className="shrink-0 text-sm text-ink-500">{shown ? `${s?.score ?? 0}/${q.points}` : `${q.points} pt${q.points === 1 ? '' : 's'}`}</span></div>
               {q.type === 'choice' ? (
                 <ul className="space-y-1.5">
                   {q.options.map((o, k) => {
                     const chosen = String(mineAnswer) === String(k);
-                    const right = mine.marksReleased && q.correct === k;
+                    const right = shown && q.correct === k;
                     return (
                       <li key={k}>
-                        <label className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${right ? 'border-emerald-500 bg-emerald-50' : chosen && mine.marksReleased ? 'border-red-300 bg-red-50' : chosen ? 'border-brand-600 bg-brand-50' : 'border-ink-200'} ${submitted || closed ? '' : 'cursor-pointer hover:bg-ink-50'}`}>
+                        <label className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${right ? 'border-emerald-500 bg-emerald-50' : chosen && shown ? 'border-red-300 bg-red-50' : chosen ? 'border-brand-600 bg-brand-50' : 'border-ink-200'} ${submitted || closed ? '' : 'cursor-pointer hover:bg-ink-50'}`}>
                           <input type="radio" name={`q-${q._id}`} checked={chosen} disabled={submitted || closed} onChange={() => change(q._id, String(k))} />{o}
                           {right && <span className="ml-auto text-xs font-semibold text-emerald-700">Correct answer</span>}
                         </label>
@@ -87,7 +95,7 @@ function LearnerView({ data, reload }) {
               ) : (
                 <textarea className="input min-h-[120px]" value={mineAnswer} disabled={submitted || closed} onChange={(e) => change(q._id, e.target.value)} placeholder={submitted ? '' : 'Type your answer here'} />
               )}
-              {mine.marksReleased && s?.comment && <p className="mt-2 text-sm text-ink-700"><b>Comment:</b> {s.comment}</p>}
+              {shown && s?.comment && <p className="mt-2 text-sm text-ink-700"><b>Comment:</b> {s.comment}</p>}
             </div>
           );
         })}
@@ -131,7 +139,7 @@ function MarkPanel({ a, row, readOnly, onSaved, onClose }) {
         <div className="flex items-center gap-3"><span className="text-sm">Total: <b>{Math.round(total * 100) / 100}/{a.questions.reduce((t, q) => t + q.points, 0)}</b></span><button className="btn-ghost" onClick={onClose}>Close</button></div>
       </div>
       <Alert>{error}</Alert>
-      {!readOnly && <p className="mb-3 rounded-md bg-sky-50 p-2 text-sm text-sky-900">Multiple-choice answers are already marked for you. Check the written answers, then press <b>Save marks</b>.</p>}
+      {!readOnly && <p className="mb-3 rounded-md bg-sky-50 p-2 text-sm text-sky-900">Multiple-choice answers are already marked for you. Check the written answers, then press <b>Save marks</b>. The learner can see the marks as soon as you save.</p>}
       <div className="space-y-4">
         {a.questions.map((q, i) => {
           const ans = given.get(String(q._id));
@@ -233,13 +241,13 @@ function StaffView({ data, reload }) {
         <div className="card mt-4 flex flex-wrap items-center gap-3">
           <p className="min-w-[220px] flex-1 text-sm text-ink-700">
             {!sent.length ? 'No learner has sent the assignment yet.' : unmarked ? `${unmarked} of ${sent.length} sent assignment${sent.length === 1 ? ' is' : 's are'} still to be marked.` : `All ${sent.length} sent assignment${sent.length === 1 ? ' is' : 's are'} marked.`}
-            {' '}Learners who did not send anything are not given a mark.
+            {' '}Learners who did not send anything are not given a mark. Send the marks to the DOS so they are recorded in Results.
           </p>
           <button className="btn-primary" disabled={!sent.length || unmarked > 0 || !!busy} onClick={sendToDos}>{a.marksStatus === 'returned' ? 'Send corrected marks to the DOS' : 'Send marks to the DOS'}</button>
         </div>
       )}
-      {trainer && a.marksStatus === 'pending' && <Alert kind="ok">The marks are with the DOS. Learners will see them once the DOS approves.</Alert>}
-      {trainer && a.marksStatus === 'approved' && <Alert kind="ok">The DOS approved these marks. Learners can now see them, and the marks are recorded in Results as a {TYPE_LABEL[a.type] || 'Formative'} assessment.</Alert>}
+      {trainer && a.marksStatus === 'pending' && <Alert kind="ok">The marks are with the DOS. Learners can already see their marks; the DOS approval records them in Results.</Alert>}
+      {trainer && a.marksStatus === 'approved' && <Alert kind="ok">{`The DOS approved these marks. They are recorded in Results as a ${TYPE_LABEL[a.type] || 'Formative'} assessment.`}</Alert>}
 
       {dos && ['pending', 'approved'].includes(a.marksStatus) && (
         <div className="card mt-4 space-y-3">
