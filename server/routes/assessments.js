@@ -33,7 +33,14 @@ router.post('/bulk', authorize('trainer', 'dos'), wrap(async (req, res) => {
   if (!classId || !moduleId || !type || !maxScore || !Array.isArray(marks)) return res.status(400).json({ message: 'Missing fields' });
   if (!(await canMark(req.user, classId, moduleId))) return res.status(403).json({ message: 'Not assigned to this class/module' });
   const lock = await lockOf(req.user, classId, moduleId, termId);
-  if (lock) return res.status(423).json({ message: lockMessage(lock) });
+  const reopen = lock && lock.status === 'approved' && req.user.role === 'trainer';
+  if (lock && !reopen) return res.status(423).json({ message: lockMessage(lock) });
+  if (reopen) {
+    // approved marks stay as they are; a trainer may add a NEW assessment, which then goes to the DOS for approval
+    if (await Assessment.exists({ class: classId, module: moduleId, term: termId || null, type, title: title || type })) {
+      return res.status(400).json({ message: 'This assessment (same type and title) was already approved. To add another one, change the title, for example "Quiz 2".' });
+    }
+  }
   for (const m of marks) {
     if (m.score < 0 || m.score > maxScore) return res.status(400).json({ message: `Score out of range for a student (0-${maxScore})` });
   }
@@ -45,6 +52,12 @@ router.post('/bulk', authorize('trainer', 'dos'), wrap(async (req, res) => {
     },
   }));
   await Assessment.bulkWrite(ops);
+  if (reopen) {
+    lock.status = 'draft';
+    lock.trainer = req.user._id;
+    lock.reviewComment = '';
+    await lock.save(); // the new marks wait to be submitted; the approved ones stay visible (approvedUpTo)
+  }
   // start tracking this class + module + term in the submission workflow (stays draft until the trainer submits)
   await MarkSubmission.updateOne(
     { class: classId, module: moduleId, term: termId || null },
@@ -94,11 +107,13 @@ router.get('/results/:studentId', wrap(async (req, res) => {
   let rows = await Assessment.find(q).populate('module', 'name code').sort({ createdAt: 1 });
   // learners and parents only see marks the DOS has approved (marks from before the approval step existed stay visible)
   if (ids) {
-    const subs = await MarkSubmission.find({ class: { $in: [...new Set(rows.map((r) => String(r.class)))] } }).select('class module term status');
-    const blocked = new Set(subs.filter((x) => x.status !== 'approved').map((x) => `${x.class}|${x.module}|${x.term || ''}`));
+    const subs = await MarkSubmission.find({ class: { $in: [...new Set(rows.map((r) => String(r.class)))] } }).select('class module term status approvedUpTo');
+    const key = (x) => `${x.class}|${x.module?._id || x.module}|${x.term || ''}`;
+    // a sheet that is not approved right now hides its marks, except the ones entered before its last approval
+    const blocked = new Map(subs.filter((x) => x.status !== 'approved').map((x) => [key(x), x.approvedUpTo ? new Date(x.approvedUpTo).getTime() : 0]));
     // marks from an online assignment the DOS approved are always visible
     const online = new Set((await OnlineSubmission.find({ assessment: { $in: rows.map((r) => r._id) } }).select('assessment')).map((s) => String(s.assessment)));
-    rows = rows.filter((r) => online.has(String(r._id)) || !blocked.has(`${r.class}|${r.module?._id}|${r.term || ''}`));
+    rows = rows.filter((r) => online.has(String(r._id)) || !blocked.has(key(r)) || new Date(r.createdAt).getTime() <= blocked.get(key(r)));
   }
   const byModule = {};
   rows.forEach((r) => {

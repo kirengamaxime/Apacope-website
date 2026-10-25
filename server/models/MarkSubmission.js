@@ -17,6 +17,7 @@ const schema = new Schema({
   reviewedAt: Date,
   reviewedBy: oid('User'),
   reviewComment: String,
+  approvedUpTo: Date, // marks entered before this moment were approved; learners keep seeing them while newer marks wait for the DOS
 }, { timestamps: true });
 schema.index({ class: 1, module: 1, term: 1 }, { unique: true });
 

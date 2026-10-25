@@ -32,6 +32,7 @@ router.get('/status', wrap(async (req, res) => {
     submittedAt: sub?.submittedAt,
     reviewedAt: sub?.reviewedAt,
     reviewedBy: sub?.reviewedBy?.name,
+    earlierApproved: !!sub?.approvedUpTo,
   });
 }));
 
@@ -112,6 +113,7 @@ router.post('/:id/approve', authorize('dos'), wrap(async (req, res) => {
   if (!sub) return;
   if (sub.status !== 'submitted') return res.status(400).json({ message: 'Only submitted marks can be approved.' });
   sub.status = 'approved';
+  sub.approvedUpTo = new Date();
   sub.reviewedBy = req.user._id;
   sub.reviewedAt = new Date();
   sub.reviewComment = String(req.body.comment || '').trim().slice(0, 500);
@@ -128,6 +130,7 @@ router.post('/:id/return', authorize('dos'), wrap(async (req, res) => {
   const comment = String(req.body.comment || '').trim().slice(0, 500);
   if (!comment) return res.status(400).json({ message: 'Write a short reason so the trainer knows what to correct.' });
   sub.status = 'returned';
+  sub.approvedUpTo = undefined; // the DOS wants a correction, so everything waits for approval again
   sub.reviewedBy = req.user._id;
   sub.reviewedAt = new Date();
   sub.reviewComment = comment;

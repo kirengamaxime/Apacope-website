@@ -48,8 +48,9 @@ export default function Marks() {
   };
   useEffect(loadStatus, [classId, moduleId, termId]);
 
-  // a trainer cannot change marks once they are submitted or approved; the DOS can
-  const locked = user.role === 'trainer' && ['submitted', 'approved'].includes(wf.status);
+  // a trainer cannot change marks once they are submitted; once approved they can still add a NEW assessment (new title)
+  const locked = user.role === 'trainer' && wf.status === 'submitted';
+  const addingToApproved = user.role === 'trainer' && wf.status === 'approved';
   const hasMarks = sheet.some((r) => r.max > 0);
   const canSubmit = ['draft', 'returned'].includes(wf.status) && hasMarks;
 
@@ -62,7 +63,7 @@ export default function Marks() {
 
   const save = async () => {
     setError(''); setMsg('');
-    if (locked) return setError('These marks are locked. Ask the DOS to return them if you need to change something.');
+    if (locked) return setError('These marks are waiting for the DOS. Ask the DOS to return them if you need to change something.');
     const marks = Object.entries(scores).filter(([, v]) => v !== '').map(([student, v]) => ({ student, score: Number(v) }));
     if (!marks.length) return setError('Enter at least one score');
     try {
@@ -89,8 +90,9 @@ export default function Marks() {
             <p className="flex flex-wrap items-center gap-2"><span className="font-medium">Status of these marks:</span><StatusPill status={wf.status} /></p>
             {wf.status === 'returned' && wf.reviewComment && <p className="mt-1.5 text-brand-700">DOS note: {wf.reviewComment}</p>}
             {wf.status === 'submitted' && <p className="mt-1 text-ink-500">Waiting for the DOS to review. The marks are locked meanwhile.</p>}
-            {wf.status === 'approved' && <p className="mt-1 text-ink-500">Approved{wf.reviewedBy ? ` by ${wf.reviewedBy}` : ''}. Learners and parents can now see them.</p>}
-            {['draft', 'returned'].includes(wf.status) && <p className="mt-1 text-ink-500">Learners and parents cannot see these marks until the DOS approves them.</p>}
+            {wf.status === 'approved' && <p className="mt-1 text-ink-500">Approved{wf.reviewedBy ? ` by ${wf.reviewedBy}` : ''}. Learners and parents can now see them.{addingToApproved ? ' To record another assessment, give it a new title (for example "Quiz 2"), enter the scores and save. The new marks are then sent to the DOS for approval.' : ''}</p>}
+            {wf.status === 'draft' && wf.earlierApproved && <p className="mt-1 text-ink-500">Your earlier marks stay visible to learners. The new marks are hidden until you press "Submit to DOS" and the DOS approves them.</p>}
+            {['draft', 'returned'].includes(wf.status) && !(wf.status === 'draft' && wf.earlierApproved) && <p className="mt-1 text-ink-500">Learners and parents cannot see these marks until the DOS approves them.</p>}
           </div>
           {canSubmit && <button className="btn-primary" disabled={sending} onClick={submitToDos}>{wf.status === 'returned' ? 'Resubmit to DOS' : 'Submit to DOS'}</button>}
         </div>
