@@ -89,7 +89,7 @@ export default function Announcements() {
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 {a.requiresAck && (a.acknowledged ? <span className="badge bg-emerald-50 text-emerald-700">{t('Acknowledged')}</span> : <button className="btn-primary" onClick={() => ack(a)}>{t('I acknowledge')}</button>)}
                 {a.requiresAck && ['headteacher', 'dos', 'admin'].includes(user.role) && <span className="text-xs text-ink-500">{a.ackCount} acknowledged</span>}
-                {(hasRole('headteacher', 'dos') || (user.role === 'trainer' && a.author?._id === user._id)) && (
+                {(hasRole('headteacher', 'dos') || (user.role === 'trainer' && String(a.author?._id) === String(user.id || user._id))) && (
                   <div className="ml-auto flex gap-2"><button className="btn-ghost" onClick={() => setEditNote(a)}>Edit</button><button className="btn-danger" onClick={() => del(a)}>Delete</button></div>
                 )}
               </div>

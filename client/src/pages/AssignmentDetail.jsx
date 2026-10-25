@@ -167,7 +167,7 @@ function StaffView({ data, reload }) {
   const { user, hasRole } = useAuth();
   const navigate = useNavigate();
   const { assignment: a, points } = data;
-  const trainer = user.role === 'trainer' && String(a.trainer?._id) === String(user._id);
+  const trainer = user.role === 'trainer' && String(a.trainer?._id) === String(user.id || user._id); // the login sends `id`
   const dos = hasRole('dos');
   const subs = useFetch(() => api.get(`/online-assignments/${a._id}/submissions`), [a._id, a.marksStatus]);
   const [openId, setOpenId] = useState('');
