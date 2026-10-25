@@ -17,7 +17,7 @@ export default function AssignmentForm() {
   const mine = useFetch(() => api.get('/academic/my-classes'), []);
   const terms = useFetch(() => api.get('/academic/terms'), []);
   const allModules = useFetch(() => api.get('/academic/modules'), []);
-  const [f, setF] = useState({ title: '', instructions: '', classId: '', moduleId: '', termId: '', dueDate: '' });
+  const [f, setF] = useState({ title: '', instructions: '', classId: '', moduleId: '', termId: '', dueDate: '', type: 'formative' });
   const [questions, setQuestions] = useState([blankQ()]);
   const [startQs, setStartQs] = useState('');
   const [roster, setRoster] = useState([]);
@@ -38,7 +38,7 @@ export default function AssignmentForm() {
   useEffect(() => {
     if (!edit) return;
     api.get(`/online-assignments/${id}`).then(({ assignment: a }) => {
-      setF({ title: a.title, instructions: a.instructions || '', classId: a.class?._id, moduleId: a.module?._id, termId: a.term?._id || '', dueDate: a.dueDate ? String(a.dueDate).slice(0, 10) : '' });
+      setF({ title: a.title, instructions: a.instructions || '', classId: a.class?._id, moduleId: a.module?._id, termId: a.term?._id || '', dueDate: a.dueDate ? String(a.dueDate).slice(0, 10) : '', type: a.type || 'formative' });
       const qs0 = a.questions.map((q) => ({ key: q._id, _id: q._id, text: q.text, type: q.type, options: q.options?.length ? [...q.options] : ['', ''], correct: q.correct ?? 0, points: q.points }));
       setQuestions(qs0); setStartQs(JSON.stringify(shape(qs0)));
       setPicked(a.students.map((s) => s._id));
@@ -76,7 +76,7 @@ export default function AssignmentForm() {
     const q = shape(questions);
     setBusy(true);
     try {
-      const body = { title: f.title, instructions: f.instructions, dueDate: f.dueDate, studentIds: picked, status };
+      const body = { title: f.title, instructions: f.instructions, dueDate: f.dueDate, type: f.type, studentIds: picked, status };
       if (edit) {
         if (JSON.stringify(q) !== startQs) body.questions = q; // untouched questions are not re-sent
         await api.put(`/online-assignments/${id}`, body);
@@ -99,7 +99,11 @@ export default function AssignmentForm() {
             <div><label className="label">Module</label><select className="input" value={f.moduleId} disabled={edit} onChange={up('moduleId')}>{modules.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}</select></div>
             <div><label className="label">Term</label><select className="input" value={f.termId} disabled={edit} onChange={up('termId')}><option value="">-</option>{(terms.data || []).map((t) => <option key={t._id} value={t._id}>{t.name}</option>)}</select></div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3"><div><label className="label">Deadline (optional)</label><input type="date" className="input" value={f.dueDate} onChange={up('dueDate')} /></div></div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div><label className="label">Type of assessment</label><select className="input" value={f.type} onChange={up('type')}><option value="formative">Formative</option><option value="summative">Summative</option><option value="comprehensive">Comprehensive</option></select></div>
+            <div><label className="label">Deadline (optional)</label><input type="date" className="input" value={f.dueDate} onChange={up('dueDate')} /></div>
+          </div>
+          <p className="text-xs text-ink-500">When the DOS approves the marks, they are entered in Results automatically as a {f.type} assessment. You do not type them again.</p>
           <div><label className="label">Instructions (optional)</label><textarea className="input min-h-[80px]" value={f.instructions} onChange={up('instructions')} placeholder="Read each question carefully and answer in your own words." /></div>
         </div>
 

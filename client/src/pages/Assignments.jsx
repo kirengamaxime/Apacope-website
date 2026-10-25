@@ -15,6 +15,8 @@ export function MarksPill({ status }) {
   return <span className={`badge ${cls}`}>{label}</span>;
 }
 
+export const TYPE_LABEL = { formative: 'Formative', summative: 'Summative', comprehensive: 'Comprehensive' };
+
 const MINE = {
   new: ['To do', 'bg-sky-50 text-sky-800'],
   started: ['In progress', 'bg-amber-50 text-amber-800'],
@@ -33,7 +35,7 @@ function LearnerList({ items }) {
         return (
           <Link key={a._id} to={`/assignments/${a._id}`} className="card block transition-shadow hover:shadow-md">
             <div className="flex items-start justify-between gap-2">
-              <div><h2>{a.title}</h2><p className="text-sm text-ink-500">{a.module?.name} - {a.trainer?.name}</p></div>
+              <div><h2>{a.title}</h2><p className="text-sm text-ink-500">{a.module?.name} - {a.trainer?.name} - {TYPE_LABEL[a.type] || 'Formative'}</p></div>
               {a.mine.total !== null ? <span className="badge bg-emerald-50 text-emerald-700">Marks: {a.mine.total}/{a.points}</span> : <span className={`badge ${cls}`}>{label}</span>}
             </div>
             <p className="mt-3 text-sm text-ink-500">{a.questionCount} question{a.questionCount === 1 ? '' : 's'} - {a.points} points{a.dueDate ? ` - due ${fmtDate(a.dueDate)}` : ''}</p>
@@ -85,7 +87,7 @@ export default function Assignments() {
             <tbody>
               {data.items.map((a) => (
                 <tr key={a._id} className="border-b border-ink-100">
-                  <td className="td font-medium">{a.title}{a.status === 'draft' && <span className="badge ml-2 bg-ink-100 text-ink-700">Draft</span>}<span className="block text-xs font-normal text-ink-500">{a.questionCount} questions - {a.points} points</span></td>
+                  <td className="td font-medium">{a.title}{a.status === 'draft' && <span className="badge ml-2 bg-ink-100 text-ink-700">Draft</span>}<span className="block text-xs font-normal text-ink-500">{TYPE_LABEL[a.type] || 'Formative'} - {a.questionCount} questions - {a.points} points</span></td>
                   <td className="td">{a.class?.name}<span className="block text-xs text-ink-500">{a.module?.name}</span></td>
                   {!trainer && <td className="td">{a.trainer?.name}</td>}
                   <td className="td text-ink-500">{a.dueDate ? fmtDate(a.dueDate) : '-'}</td>

@@ -17,6 +17,7 @@ const questionSchema = new Schema({
 
 const assignmentSchema = new Schema({
   title: { type: String, required: true, trim: true },
+  type: { type: String, enum: ['formative', 'summative', 'comprehensive'], default: 'formative' }, // how the approved marks are recorded in Results
   instructions: { type: String, trim: true },
   class: oid('Class', { required: true, index: true }),
   module: oid('Module', { required: true }),
@@ -44,6 +45,7 @@ const submissionSchema = new Schema({
   total: { type: Number, default: 0 },
   marked: { type: Boolean, default: false },
   markedAt: Date,
+  assessment: oid('Assessment'), // the Results record created when the DOS approves
   feedback: String,
 }, { timestamps: true });
 submissionSchema.index({ assignment: 1, student: 1 }, { unique: true });

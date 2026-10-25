@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { Assessment, Student, Assignment } = require('../models');
 const MarkSubmission = require('../models/MarkSubmission');
+const { OnlineSubmission } = require('../models/OnlineAssignment');
 const { protect, authorize, visibleStudentIds } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
 const { wrap, gradeFor, paging } = require('../utils/helpers');
@@ -21,6 +22,10 @@ async function lockOf(user, classId, moduleId, termId) {
 const lockMessage = (sub) => (sub.status === 'approved'
   ? 'These marks were approved by the DOS and are locked. Ask the DOS to return them if a correction is needed.'
   : 'These marks were submitted to the DOS and are locked. Ask the DOS to return them if you need to change something.');
+
+/** Marks that came from an approved online assignment are changed through that assignment, so the two never disagree */
+const ONLINE_MSG = 'This mark comes from an online assignment. Ask the DOS to return the assignment marks if it needs a correction.';
+const fromOnline = (id) => OnlineSubmission.exists({ assessment: id });
 
 /** Enter/update marks for a whole class in one go */
 router.post('/bulk', authorize('trainer', 'dos'), wrap(async (req, res) => {
@@ -54,6 +59,7 @@ router.put('/:id', authorize('trainer', 'dos'), wrap(async (req, res) => {
   const a = await Assessment.findById(req.params.id);
   if (!a) return res.status(404).json({ message: 'Not found' });
   if (!(await canMark(req.user, a.class, a.module))) return res.status(403).json({ message: 'Not allowed' });
+  if (await fromOnline(a._id)) return res.status(400).json({ message: ONLINE_MSG });
   const lock = await lockOf(req.user, a.class, a.module, a.term);
   if (lock) return res.status(423).json({ message: lockMessage(lock) });
   const before = a.score;
@@ -71,6 +77,7 @@ router.delete('/:id', authorize('trainer', 'dos'), wrap(async (req, res) => {
   const a = await Assessment.findById(req.params.id);
   if (!a) return res.status(404).json({ message: 'Not found' });
   if (!(await canMark(req.user, a.class, a.module))) return res.status(403).json({ message: 'Not allowed' });
+  if (await fromOnline(a._id)) return res.status(400).json({ message: ONLINE_MSG });
   const lock = await lockOf(req.user, a.class, a.module, a.term);
   if (lock) return res.status(423).json({ message: lockMessage(lock) });
   await a.deleteOne();
@@ -89,7 +96,9 @@ router.get('/results/:studentId', wrap(async (req, res) => {
   if (ids) {
     const subs = await MarkSubmission.find({ class: { $in: [...new Set(rows.map((r) => String(r.class)))] } }).select('class module term status');
     const blocked = new Set(subs.filter((x) => x.status !== 'approved').map((x) => `${x.class}|${x.module}|${x.term || ''}`));
-    rows = rows.filter((r) => !blocked.has(`${r.class}|${r.module?._id}|${r.term || ''}`));
+    // marks from an online assignment the DOS approved are always visible
+    const online = new Set((await OnlineSubmission.find({ assessment: { $in: rows.map((r) => r._id) } }).select('assessment')).map((s) => String(s.assessment)));
+    rows = rows.filter((r) => online.has(String(r._id)) || !blocked.has(`${r.class}|${r.module?._id}|${r.term || ''}`));
   }
   const byModule = {};
   rows.forEach((r) => {

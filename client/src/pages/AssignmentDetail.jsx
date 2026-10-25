@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { PageHeader, Alert, Spinner, useFetch, fmtDate } from '../components/ui';
-import { MarksPill, isLate } from './Assignments';
+import { MarksPill, isLate, TYPE_LABEL } from './Assignments';
 
 const optionText = (q, v) => (v === undefined || v === '' ? '' : q.options?.[Number(v)] ?? '');
 
@@ -47,7 +47,7 @@ function LearnerView({ data, reload }) {
 
   return (
     <>
-      <PageHeader title={a.title} subtitle={`${a.module?.name} - ${a.trainer?.name}${a.dueDate ? ` - due ${fmtDate(a.dueDate)}` : ''}`}>
+      <PageHeader title={a.title} subtitle={`${a.module?.name} - ${a.trainer?.name} - ${TYPE_LABEL[a.type] || 'Formative'}${a.dueDate ? ` - due ${fmtDate(a.dueDate)}` : ''}`}>
         <Link className="btn-ghost" to="/assignments">All assignments</Link>
       </PageHeader>
       <Alert>{error}</Alert>
@@ -131,6 +131,7 @@ function MarkPanel({ a, row, readOnly, onSaved, onClose }) {
         <div className="flex items-center gap-3"><span className="text-sm">Total: <b>{Math.round(total * 100) / 100}/{a.questions.reduce((t, q) => t + q.points, 0)}</b></span><button className="btn-ghost" onClick={onClose}>Close</button></div>
       </div>
       <Alert>{error}</Alert>
+      {!readOnly && <p className="mb-3 rounded-md bg-sky-50 p-2 text-sm text-sky-900">Multiple-choice answers are already marked for you. Check the written answers, then press <b>Save marks</b>.</p>}
       <div className="space-y-4">
         {a.questions.map((q, i) => {
           const ans = given.get(String(q._id));
@@ -144,6 +145,7 @@ function MarkPanel({ a, row, readOnly, onSaved, onClose }) {
               {auto && <p className="mt-1 text-xs text-ink-500">Correct answer: <b className="text-emerald-700">{q.options[q.correct]}</b> (marked automatically, you can still change the score)</p>}
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <label className="flex items-center gap-1.5 text-sm">Score <input type="number" min={0} max={q.points} step={0.5} className="input w-24 py-1.5" value={scores[q._id]} disabled={readOnly} onChange={(e) => setScores({ ...scores, [q._id]: e.target.value })} /> / {q.points}</label>
+                {!readOnly && !auto && <button type="button" className="btn-ghost py-1" onClick={() => setScores({ ...scores, [q._id]: String(q.points) })}>Full marks</button>}
                 <input className="input min-w-[200px] flex-1 py-1.5" value={comments[q._id]} disabled={readOnly} placeholder={readOnly ? '' : 'Comment for the learner (optional)'} onChange={(e) => setComments({ ...comments, [q._id]: e.target.value })} />
               </div>
             </div>
@@ -196,7 +198,7 @@ function StaffView({ data, reload }) {
 
   return (
     <>
-      <PageHeader title={a.title} subtitle={`${a.class?.name} - ${a.module?.name}${a.term ? ` - ${a.term.name}` : ''} - ${a.questions.length} questions, ${points} points${a.dueDate ? ` - due ${fmtDate(a.dueDate)}` : ''}`}>
+      <PageHeader title={a.title} subtitle={`${a.class?.name} - ${a.module?.name} - ${TYPE_LABEL[a.type] || 'Formative'}${a.term ? ` - ${a.term.name}` : ''} - ${a.questions.length} questions, ${points} points${a.dueDate ? ` - due ${fmtDate(a.dueDate)}` : ''}`}>
         <MarksPill status={a.marksStatus} />
         <Link className="btn-ghost" to="/assignments">Back</Link>
         {trainer && !locked && <><Link className="btn-ghost" to={`/assignments/${a._id}/edit`}>Edit</Link><button className="btn-danger" onClick={removeIt}>Delete</button></>}
@@ -237,7 +239,7 @@ function StaffView({ data, reload }) {
         </div>
       )}
       {trainer && a.marksStatus === 'pending' && <Alert kind="ok">The marks are with the DOS. Learners will see them once the DOS approves.</Alert>}
-      {trainer && a.marksStatus === 'approved' && <Alert kind="ok">The DOS approved these marks. Learners can now see them.</Alert>}
+      {trainer && a.marksStatus === 'approved' && <Alert kind="ok">The DOS approved these marks. Learners can now see them, and the marks are recorded in Results as a {TYPE_LABEL[a.type] || 'Formative'} assessment.</Alert>}
 
       {dos && ['pending', 'approved'].includes(a.marksStatus) && (
         <div className="card mt-4 space-y-3">

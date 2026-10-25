@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { Assignment, Student } = require('../models');
+const { Assignment, Student, Assessment } = require('../models');
 const { OnlineAssignment, OnlineSubmission } = require('../models/OnlineAssignment');
 const { protect, authorize } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
@@ -8,6 +8,7 @@ const { wrap, endOfDay } = require('../utils/helpers');
 router.use(protect);
 
 const MANAGERS = ['admin', 'dos', 'headteacher'];
+const TYPES = ['formative', 'summative', 'comprehensive'];
 const same = (a, b) => String(a) === String(b);
 const round = (n) => Math.round(n * 100) / 100;
 const POPULATE = [
@@ -20,6 +21,28 @@ const POPULATE = [
 /** The app's input filter turns "<" into "&lt;". Learners write code (<div>...), so put it back. React still escapes it when shown. */
 const raw = (s) => String(s ?? '').replace(/&lt;/g, '<');
 const totalPoints = (a) => round(a.questions.reduce((t, q) => t + q.points, 0));
+
+/** When the DOS approves, every marked learner's total is entered into Results as a normal mark of this assignment's type */
+async function enterMarks(a) {
+  const subs = await OnlineSubmission.find({ assignment: a._id, status: 'submitted', marked: true });
+  const max = totalPoints(a);
+  for (const s of subs) {
+    const fields = { class: a.class, module: a.module, term: a.term || null, type: a.type || 'formative', title: a.title, score: s.total, maxScore: max, competent: (s.total / max) * 100 >= 70, enteredBy: a.trainer };
+    let row = s.assessment ? await Assessment.findByIdAndUpdate(s.assessment, { $set: fields }, { new: true }) : null;
+    if (!row) row = await Assessment.create({ student: s.student, ...fields });
+    s.assessment = row._id;
+    await s.save();
+  }
+  return subs.length;
+}
+
+/** When the DOS sends the marks back, the Results records made from them are taken out again until they are re-approved */
+async function removeMarks(a) {
+  const subs = await OnlineSubmission.find({ assignment: a._id, assessment: { $ne: null } });
+  if (!subs.length) return;
+  await Assessment.deleteMany({ _id: { $in: subs.map((s) => s.assessment) } });
+  await OnlineSubmission.updateMany({ _id: { $in: subs.map((s) => s._id) } }, { $unset: { assessment: 1 } });
+}
 
 async function canTeach(user, classId, moduleId) {
   if (user.role === 'admin') return true;
@@ -79,7 +102,7 @@ router.get('/', wrap(async (req, res) => {
   const items = list.map((a) => {
     const mine = subs.filter((s) => same(s.assignment, a._id));
     const base = {
-      _id: a._id, title: a.title, class: a.class, module: a.module, term: a.term, trainer: a.trainer, dueDate: a.dueDate,
+      _id: a._id, title: a.title, type: a.type || 'formative', class: a.class, module: a.module, term: a.term, trainer: a.trainer, dueDate: a.dueDate,
       status: a.status, marksStatus: a.marksStatus, createdAt: a.createdAt, points: totalPoints(a), questionCount: a.questions.length,
       reviewComment: a.reviewComment,
     };
@@ -107,7 +130,7 @@ router.post('/', authorize('trainer'), wrap(async (req, res) => {
   const found = await Student.countDocuments({ _id: { $in: ids }, class: b.classId, status: 'active' });
   if (found !== ids.length) return res.status(400).json({ message: 'Some chosen learners are not active learners of this class.' });
   const a = await OnlineAssignment.create({
-    title: raw(b.title).trim(), instructions: raw(b.instructions).trim(), class: b.classId, module: b.moduleId, term: b.termId || undefined,
+    title: raw(b.title).trim(), type: TYPES.includes(b.type) ? b.type : 'formative', instructions: raw(b.instructions).trim(), class: b.classId, module: b.moduleId, term: b.termId || undefined,
     trainer: req.user._id, students: ids, dueDate: b.dueDate || undefined, questions, status: b.status === 'draft' ? 'draft' : 'published',
   });
   await audit(req, 'ASSIGNMENT_CREATE', 'OnlineAssignment', a._id, { title: a.title, learners: ids.length });
@@ -145,6 +168,7 @@ router.put('/:id', authorize('trainer'), wrap(async (req, res) => {
   const b = req.body;
   const hasWork = await OnlineSubmission.exists({ assignment: a._id });
   if (b.title !== undefined) { if (!raw(b.title).trim()) return res.status(400).json({ message: 'Give the assignment a title.' }); a.title = raw(b.title).trim(); }
+  if (b.type && TYPES.includes(b.type)) a.type = b.type;
   if (b.instructions !== undefined) a.instructions = raw(b.instructions).trim();
   if (b.dueDate !== undefined) a.dueDate = b.dueDate || undefined;
   if (b.status) a.status = b.status === 'draft' ? 'draft' : 'published';
@@ -221,7 +245,9 @@ router.post('/:id/submit', wrap(async (req, res) => {
   sub.total = round(sub.scores.reduce((t, s) => t + s.score, 0));
   sub.status = 'submitted';
   sub.submittedAt = new Date();
-  sub.marked = false;
+  // an assignment made only of multiple-choice questions is fully marked by the system; the trainer just checks it
+  sub.marked = a.questions.every((q) => q.type === 'choice');
+  sub.markedAt = sub.marked ? new Date() : undefined;
   await sub.save();
   await audit(req, 'ASSIGNMENT_SUBMIT', 'OnlineAssignment', a._id);
   res.json({ status: 'submitted', submittedAt: sub.submittedAt });
@@ -293,8 +319,9 @@ router.post('/:id/approve', authorize('dos'), wrap(async (req, res) => {
   a.reviewedAt = new Date();
   a.reviewComment = String(req.body.comment || '').trim().slice(0, 500);
   await a.save();
-  await audit(req, 'ASSIGNMENT_APPROVE', 'OnlineAssignment', a._id);
-  res.json({ marksStatus: a.marksStatus });
+  const entered = await enterMarks(a);
+  await audit(req, 'ASSIGNMENT_APPROVE', 'OnlineAssignment', a._id, { enteredInResults: entered });
+  res.json({ marksStatus: a.marksStatus, enteredInResults: entered });
 }));
 
 router.post('/:id/return', authorize('dos'), wrap(async (req, res) => {
@@ -308,6 +335,7 @@ router.post('/:id/return', authorize('dos'), wrap(async (req, res) => {
   a.reviewedAt = new Date();
   a.reviewComment = comment;
   await a.save();
+  await removeMarks(a);
   await audit(req, 'ASSIGNMENT_RETURN', 'OnlineAssignment', a._id, { comment });
   res.json({ marksStatus: a.marksStatus });
 }));
