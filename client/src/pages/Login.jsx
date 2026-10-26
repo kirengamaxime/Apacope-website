@@ -1,9 +1,23 @@
 import { useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 import { Alert } from '../components/ui';
+
+/** A password box with an eye button to show or hide what was typed */
+function PasswordInput({ id, value, onChange, autoComplete, minLength }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <input id={id} className="input py-2.5 pr-11" type={show ? 'text' : 'password'} required minLength={minLength} autoComplete={autoComplete} value={value} onChange={onChange} />
+      <button type="button" onClick={() => setShow(!show)} aria-label={show ? 'Hide password' : 'Show password'} aria-pressed={show} title={show ? 'Hide password' : 'Show password'}
+        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-md text-ink-500 hover:text-ink-900">
+        {show ? <EyeOff className="h-5 w-5" aria-hidden="true" /> : <Eye className="h-5 w-5" aria-hidden="true" />}
+      </button>
+    </div>
+  );
+}
 
 function Shell({ title, lead, children }) {
   return (
@@ -58,7 +72,7 @@ export default function Login() {
         <div><label className="label" htmlFor="email">Email</label><input id="email" className="input py-2.5" type="email" required autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
         <div>
           <div className="flex items-center justify-between"><label className="label" htmlFor="password">Password</label><Link className="mb-1 text-[13px] font-medium text-brand-700 hover:underline" to="/forgot-password">Forgot password?</Link></div>
-          <input id="password" className="input py-2.5" type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <PasswordInput id="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
         <button className="btn-primary w-full py-2.5" disabled={busy}>{busy ? 'Signing in' : 'Sign in'}</button>
       </form>
@@ -101,7 +115,7 @@ export function ResetPassword() {
     <Shell title="Choose a new password" lead="Use at least 8 characters.">
       <Alert>{error}</Alert><Alert kind="ok">{msg}</Alert>
       <form onSubmit={submit} className="space-y-4">
-        <div><label className="label" htmlFor="np">New password</label><input id="np" className="input py-2.5" type="password" minLength={8} required value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+        <div><label className="label" htmlFor="np">New password</label><PasswordInput id="np" autoComplete="new-password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} /></div>
         <button className="btn-primary w-full py-2.5">Save password</button>
       </form>
       <p className="mt-6 text-sm"><Link className="font-medium text-brand-700 hover:underline" to="/login">Go to sign in</Link></p>
