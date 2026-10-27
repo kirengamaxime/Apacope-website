@@ -46,36 +46,70 @@ function drawCard(doc, r, { comment } = {}) {
   field(doc, 'Attendance', r.attendance ? `${r.attendance.percentage}%` : '-', L + 425, y + 36, 80);
   y += 78;
 
-  // marks table
-  const cols = [{ h: 'Module', w: 195 }, { h: 'Code', w: 70 }, { h: 'Marks', w: 70, a: 'right' }, { h: '%', w: 45, a: 'right' }, { h: 'Grade', w: 40, a: 'center' }, { h: 'Result', w: 95, a: 'center' }];
-  const row = (vals, yy, o = {}) => {
-    let x = L;
-    cols.forEach((c, i) => {
-      doc.font(o.bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(9).fillColor(o.color && o.color[i] ? o.color[i] : NAVY)
-        .text(String(vals[i] ?? ''), x + 5, yy + 5, { width: c.w - 10, align: c.a || 'left', lineBreak: false, ellipsis: true });
-      x += c.w;
-    });
-  };
+  // marks: one block per module, split into formative / summative / comprehensive
+  const X = { mark: L + 255, pct: L + 335, grade: L + 385, result: L + 420 }; // column starts (title column is L + 14)
+  const cell = (text, x, yy, w, o = {}) => doc.font(o.bold ? 'Helvetica-Bold' : o.italic ? 'Helvetica-Oblique' : 'Helvetica').fontSize(o.size || 9)
+    .fillColor(o.color || NAVY).text(String(text ?? ''), x, yy, { width: w, align: o.align || 'left', lineBreak: false, ellipsis: true });
+  const newPage = () => { doc.addPage(); header(doc); return doc.y; };
+
   doc.rect(L, y, W, 20).fill(NAVY);
-  let x0 = L;
-  cols.forEach((c) => { doc.font('Helvetica-Bold').fontSize(9).fillColor('#ffffff').text(c.h, x0 + 5, y + 6, { width: c.w - 10, align: c.a || 'left', lineBreak: false }); x0 += c.w; });
+  const head = (t, x, w, al) => doc.font('Helvetica-Bold').fontSize(9).fillColor('#ffffff').text(t, x, y + 6, { width: w, align: al || 'left', lineBreak: false });
+  head('Module / assessment', L + 8, 240); head('Marks', X.mark, 75, 'right'); head('%', X.pct, 45, 'right'); head('Grade', X.grade, 35, 'center'); head('Result', X.result, 90, 'right');
   y += 20;
 
   if (!r.modules.length) {
-    doc.font('Helvetica-Oblique').fontSize(10).fillColor(GREY).text('No marks have been recorded for this learner yet.', L + 5, y + 10, { width: W - 10 });
+    doc.font('Helvetica-Oblique').fontSize(10).fillColor(GREY).text('No approved marks have been recorded for this learner in this period.', L + 5, y + 10, { width: W - 10 });
     y += 36;
   } else {
-    r.modules.forEach((m, i) => {
-      if (y > 640) { doc.addPage(); header(doc); y = doc.y; }
-      if (i % 2) doc.rect(L, y, W, 20).fill('#f5f7fa');
-      row([m.module, m.code, `${m.total} / ${m.max}`, `${m.percentage}`, m.grade, m.competent ? 'Competent' : 'Not yet competent'], y, { color: { 5: m.competent ? '#146c43' : RED } });
-      y += 20;
+    r.modules.forEach((m) => {
+      const firstCat = m.categories[0];
+      if (y + 22 + 17 + 16 * Math.min(2, firstCat ? firstCat.items.length : 0) > 745) y = newPage();
+      // module band
+      doc.rect(L, y, W, 22).fill('#e3e9f1');
+      cell(m.code ? `${m.module}  (${m.code})` : m.module, L + 8, y + 6, 245, { bold: true, size: 10 });
+      cell(`${m.total} / ${m.max}`, X.mark, y + 6, 75, { bold: true, align: 'right' });
+      cell(m.percentage, X.pct, y + 6, 45, { bold: true, align: 'right' });
+      cell(m.grade, X.grade, y + 6, 35, { bold: true, align: 'center' });
+      cell(m.competent ? 'Competent' : 'Not yet competent', X.result, y + 6, 90, { bold: true, align: 'right', color: m.competent ? '#146c43' : RED });
+      y += 22;
+      m.categories.forEach((c) => {
+        if (y + 17 + 16 > 760) y = newPage();
+        cell(c.label, L + 8, y + 4, 240, { bold: true, size: 8.5, color: GREY });
+        cell(`${c.total} / ${c.max}`, X.mark, y + 4, 75, { bold: true, size: 8.5, align: 'right', color: GREY });
+        cell(c.percentage, X.pct, y + 4, 45, { bold: true, size: 8.5, align: 'right', color: GREY });
+        y += 17;
+        c.items.forEach((it) => {
+          if (y + 16 > 770) y = newPage();
+          cell(it.title, L + 18, y + 3, 215);
+          if (it.online) cell('Online', L + 195, y + 4, 52, { size: 7.5, color: RED, align: 'right' });
+          cell(`${it.score} / ${it.maxScore}`, X.mark, y + 3, 75, { align: 'right' });
+          cell(it.percentage, X.pct, y + 3, 45, { align: 'right' });
+          doc.moveTo(L + 18, y + 16).lineTo(L + W, y + 16).lineWidth(0.4).strokeColor(LINE).stroke();
+          y += 16;
+        });
+      });
+      y += 8;
     });
-    doc.moveTo(L, y).lineTo(L + W, y).lineWidth(0.8).strokeColor(LINE).stroke();
+  }
+
+  // assessment summary: totals per category over all modules
+  if (r.modules.length && r.typeTotals) {
+    if (y > 690) y = newPage();
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(NAVY).text('Assessment summary', L, y);
+    y += 16;
+    const cw = W / 3;
+    r.typeTotals.forEach((t, i) => {
+      const x = L + i * cw;
+      doc.rect(x, y, cw - (i < 2 ? 6 : 0), 46).fillAndStroke('#f5f7fa', LINE);
+      doc.font('Helvetica').fontSize(8).fillColor(GREY).text(t.label.toUpperCase(), x + 10, y + 7, { width: cw - 26, lineBreak: false });
+      doc.font('Helvetica-Bold').fontSize(12).fillColor(NAVY).text(t.max ? `${t.percentage}%` : '-', x + 10, y + 19, { width: cw - 26, lineBreak: false });
+      doc.font('Helvetica').fontSize(8).fillColor(GREY).text(t.max ? `${t.total} / ${t.max} marks - ${t.count} assessment${t.count === 1 ? '' : 's'}` : 'None recorded', x + 10, y + 34, { width: cw - 26, lineBreak: false });
+    });
+    y += 64;
   }
 
   // summary
-  y += 12;
+  y += 4;
   if (y > 660) { doc.addPage(); header(doc); y = doc.y; }
   field(doc, 'Overall average', r.modules.length ? `${r.average}%` : '-', L, y, 110);
   field(doc, 'Grade', r.grade || '-', L + 130, y, 60);

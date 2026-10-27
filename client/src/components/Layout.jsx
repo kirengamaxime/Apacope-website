@@ -21,6 +21,7 @@ export const NAV = [
   { to: '/marks-review', label: 'Marks review', icon: ListChecks, group: 'Academics', roles: ['dos', 'headteacher', 'trainer'] },
   { to: '/results', label: 'Results', icon: GraduationCap, group: 'Academics', roles: ['student', 'parent', 'dos', 'headteacher', 'trainer'] },
   { to: '/report-cards', label: 'Report cards', icon: FileText, group: 'Academics', roles: ['dos', 'headteacher'] },
+  { to: '/my-report', label: 'Report card', icon: FileText, group: 'Academics', roles: ['student', 'parent'] },
   { to: '/students', label: 'Students', icon: Users, group: 'Academics', roles: ['dos', 'headteacher', 'trainer'] },
   { to: '/assignments', label: 'Assignments', icon: NotebookPen, group: 'Learning', roles: ['student', 'trainer', 'dos', 'headteacher'] },
   { to: '/resources', label: 'Learning materials', icon: Library, group: 'Learning', roles: ['student', 'trainer', 'dos', 'headteacher'] },

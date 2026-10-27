@@ -23,6 +23,7 @@ import Finance from './pages/Finance';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 import ReportCards from './pages/ReportCards';
+import MyReport from './pages/MyReport';
 import StudentProfile from './pages/StudentProfile';
 import StaffProfile from './pages/StaffProfile';
 import Users from './pages/Users';
@@ -69,6 +70,7 @@ export default function App() {
         <Route path="/assignments/:id/edit" element={<Guard path="/assignments"><AssignmentForm /></Guard>} />
         <Route path="/assignments/:id" element={<Guard path="/assignments"><AssignmentDetail /></Guard>} />
         {g('/report-cards', <ReportCards />)}
+        {g('/my-report', <MyReport />)}
         {g('/resources', <Resources category="lesson" />)}
         {g('/entertainment', <Resources category="entertainment" />)}
         {g('/announcements', <Announcements />)}

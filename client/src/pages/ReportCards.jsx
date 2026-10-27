@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, download, qs } from '../api/client';
 import { PageHeader, Alert, Spinner, Empty, useFetch } from '../components/ui';
+import ReportSheet from '../components/ReportSheet';
 
 export default function ReportCards() {
   const classes = useFetch(() => api.get('/academic/classes'), []);
@@ -34,21 +35,23 @@ export default function ReportCards() {
   const students = list.data?.students || [];
   return (
     <>
+      <div className="print:hidden">
       <PageHeader title="Report cards" subtitle="Build each learner's report from the recorded marks, add your comment, and print it as a PDF">
         {classId && students.length > 0 && <button className="btn-ghost" disabled={!!busy} onClick={() => pdf(`/report-cards/class/${classId}/pdf`, 'class-report-cards.pdf', 'class')}>{busy === 'class' ? 'Preparing...' : 'Download whole class (PDF)'}</button>}
       </PageHeader>
-        <Alert>{error || list.error || rep.error}</Alert>
+      </div>
+      <div className="print:hidden"><Alert>{error}</Alert></div>
 
-      <div className="card mb-5 grid gap-3 sm:grid-cols-2">
+      <div className="card mb-5 grid gap-3 sm:grid-cols-2 print:hidden">
         <div><label className="label" htmlFor="rc-class">Class</label>
           <select id="rc-class" className="input" value={classId} onChange={(e) => setClassId(e.target.value)}><option value="">Choose a class</option>{(classes.data || []).map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}</select></div>
         <div><label className="label" htmlFor="rc-term">Term</label>
-          <select id="rc-term" className="input" value={termId} onChange={(e) => setTermId(e.target.value)}><option value="">All recorded marks</option>{(terms.data || []).map((t) => <option key={t._id} value={t._id}>{t.academicYear?.name ? `${t.academicYear.name} - ` : ''}{t.name}</option>)}</select></div>
+          <select id="rc-term" className="input" value={termId} onChange={(e) => setTermId(e.target.value)}><option value="">All approved marks</option>{(terms.data || []).map((t) => <option key={t._id} value={t._id}>{t.academicYear?.name ? `${t.academicYear.name} - ` : ''}{t.name}</option>)}</select></div>
       </div>
 
       {!classId ? <Empty text="Choose a class to see its learners." /> : (
         <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
-          <section className="rounded-lg border border-ink-200 bg-white">
+          <section className="rounded-lg border border-ink-200 bg-white print:hidden">
             <header className="border-b border-ink-100 px-4 py-3"><h2>Learners</h2>{list.data && <p className="text-[13px] text-ink-500">{students.length} learners, {list.data.ranked} with marks</p>}</header>
             {list.loading ? <Spinner /> : !students.length ? <Empty text="No active learners in this class." /> : (
               <ul className="max-h-[70vh] divide-y divide-ink-100 overflow-y-auto">
@@ -67,39 +70,13 @@ export default function ReportCards() {
           <section className="min-w-0">
             {!studentId ? <div className="rounded-lg border border-dashed border-ink-200 bg-white"><Empty text="Choose a learner to see the report." /></div> : rep.loading || !r ? <Spinner /> : (
               <div className="space-y-5">
-                <div className="rounded-lg border border-ink-200 bg-white">
-                  <header className="flex flex-wrap items-start justify-between gap-3 border-b border-ink-100 px-5 py-4">
-                    <div><h2>{r.student.firstName} {r.student.lastName}</h2><p className="text-sm text-ink-500">{r.student.admissionNo} - {r.class?.name}{r.class?.trade ? ` - ${r.class.trade}` : ''}{r.term ? ` - ${r.term.name}${r.term.year ? ` ${r.term.year}` : ''}` : ''}</p></div>
-                    <button className="btn-primary" disabled={!!busy} onClick={() => pdf(`/report-cards/${studentId}/pdf`, 'report-card.pdf', 'one')}>{busy === 'one' ? 'Preparing...' : 'Download PDF'}</button>
-                  </header>
-                  {!r.modules.length ? <Empty text="No marks have been recorded for this learner yet." /> : (
-                    <>
-                      <div className="overflow-x-auto">
-                        <table className="w-full min-w-[520px]">
-                          <thead><tr className="border-b border-ink-200"><th className="th">Module</th><th className="th text-right">Marks</th><th className="th text-right">%</th><th className="th">Grade</th><th className="th">Result</th></tr></thead>
-                          <tbody>
-                            {r.modules.map((m) => (
-                              <tr key={m.code || m.module} className="border-b border-ink-100">
-                                <td className="td"><span className="font-medium">{m.module}</span>{m.code && <span className="ml-2 text-xs text-ink-500">{m.code}</span>}</td>
-                                <td className="td whitespace-nowrap text-right tabular-nums">{m.total} / {m.max}</td>
-                                <td className="td text-right tabular-nums">{m.percentage}</td>
-                                <td className="td">{m.grade}</td>
-                                <td className="td"><span className={`badge ${m.competent ? 'bg-emerald-50 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{m.competent ? 'Competent' : 'Not yet competent'}</span></td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      <dl className="grid grid-cols-2 gap-px border-t border-ink-200 bg-ink-200 sm:grid-cols-4">
-                        {[['Average', `${r.average}%`], ['Grade', `${r.grade} - ${r.remark}`], ['Position', r.position ? `${r.position} of ${r.outOf}` : '-'], ['Attendance', r.attendance ? `${r.attendance.percentage}%` : 'Choose a term']].map(([k, v]) => (
-                          <div key={k} className="bg-white px-4 py-3"><dt className="text-[13px] text-ink-500">{k}</dt><dd className="font-semibold">{v}</dd></div>
-                        ))}
-                      </dl>
-                    </>
-                  )}
+                <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
+                  <p className="text-sm text-ink-500">Only marks approved by the DOS appear here. Choose a term to see that term's marks.</p>
+                  <div className="flex gap-2"><button className="btn-ghost" onClick={() => window.print()}>Print</button><button className="btn-primary" disabled={!!busy} onClick={() => pdf(`/report-cards/${studentId}/pdf`, 'report-card.pdf', 'one')}>{busy === 'one' ? 'Preparing...' : 'Download PDF'}</button></div>
                 </div>
+                <ReportSheet r={r} comment={comment} />
 
-                <div className="rounded-lg border border-ink-200 bg-white p-5">
+                <div className="rounded-lg border border-ink-200 bg-white p-5 print:hidden">
                   <div className="flex flex-wrap items-center justify-between gap-2"><h2>Comment of the Director of Studies</h2>
                     {r.suggestedComment && <button className="btn-ghost" onClick={() => setComment(r.suggestedComment)}>Use suggested comment</button>}</div>
                   <p className="mt-1 text-sm text-ink-500">A first draft is written from the marks. Edit it freely, then save.</p>
