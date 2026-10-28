@@ -6,6 +6,7 @@
  *   GET  /api/report-cards/:studentId?termId=        one full report (+ suggested comment)               (DOS, head teacher)
  *   PUT  /api/report-cards/:studentId/comment        save the DOS comment                                (DOS, head teacher)
  *   GET  /api/report-cards/mine/students             the learners a learner / parent may open
+ *  *   GET  /api/report-cards/progress/:studentId       averages term by term, per module and type          (staff, learner, parent)
  *   GET  /api/report-cards/mine/:studentId?termId=   a learner's own report (and /pdf)                   (learner, parent)
  */
 const router = require('express').Router();
@@ -172,6 +173,42 @@ router.get('/class/:classId/pdf', staff, wrap(async (req, res) => {
   }
   await audit(req, 'REPORT_CARD_EXPORT', 'Class', req.params.classId, { termId, count: students.length });
   doc.end();
+}));
+/* ------------------------------------------------ progress over the terms */
+/** Averages term by term (approved marks only), per module and per assessment type, so improvement or decline is visible */
+router.get('/progress/:studentId', wrap(async (req, res) => {
+  const ids = await visibleStudentIds(req.user); // null = staff
+  if (ids && !ids.map(String).includes(String(req.params.studentId))) return res.status(403).json({ message: 'Not allowed' });
+  if (!ids && !['admin', 'dos', 'headteacher', 'trainer'].includes(req.user.role)) return res.status(403).json({ message: 'You do not have permission to do this' });
+  const student = await Student.findById(req.params.studentId).select('firstName lastName admissionNo');
+  if (!student) return res.status(404).json({ message: 'Student not found' });
+
+  const { rows: marks, online } = await approvedOnly(await Assessment.find({ student: student._id }).populate('module', 'name code').sort({ createdAt: 1 }));
+  const termIds = [...new Set(marks.map((m) => String(m.term || '')).filter(Boolean))];
+  const terms = await Term.find({ _id: { $in: termIds } }).populate('academicYear', 'name');
+  const when = (t) => new Date(t.startDate || t.createdAt || 0).getTime();
+  const ordered = [...terms].sort((a, b) => when(a) - when(b));
+
+  const points = ordered.map((t) => {
+    const modules = buildModules(marks.filter((m) => String(m.term) === String(t._id)), online);
+    const avg = averageOf(modules);
+    const byType = Object.fromEntries(typeTotals(modules).map((x) => [x.type, x.max ? x.percentage : null]));
+    return {
+      termId: t._id, name: t.name, year: t.academicYear?.name || '', label: `${t.name}${t.academicYear?.name ? ` ${t.academicYear.name}` : ''}`,
+      average: avg, ...(modules.length ? gradeFor(avg) : { grade: '', remark: '' }), types: byType,
+      modules: modules.map((m) => ({ module: m.module, code: m.code, percentage: m.percentage, grade: m.grade, competent: m.competent })),
+    };
+  }).filter((p) => p.modules.length);
+
+  const last = points[points.length - 1];
+  const before = points[points.length - 2];
+  const change = last && before ? round1(last.average - before.average) : null;
+  const trend = change === null ? null : change > 1 ? 'up' : change < -1 ? 'down' : 'steady';
+  const moduleNames = [...new Set(points.flatMap((p) => p.modules.map((m) => m.module)))].sort();
+  res.json({
+    student: { id: student._id, name: `${student.firstName} ${student.lastName}`, admissionNo: student.admissionNo },
+    points, modules: moduleNames, change, trend,
+  });
 }));
 
 /* ------------------------------------------------ learners and parents: their own report */

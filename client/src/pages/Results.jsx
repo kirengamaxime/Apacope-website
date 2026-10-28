@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { PageHeader, Alert, Spinner, Empty, useFetch } from '../components/ui';
+import ProgressChart from '../components/ProgressChart';
 
 export default function Results() {
   const { user } = useAuth();
@@ -46,6 +47,7 @@ export default function Results() {
             <div><p className="label">{t('Grade')}</p><p className="text-3xl font-bold text-brand-600">{res.data.grade}</p></div>
             <p className="text-sm text-ink-500">{t(res.data.remark)}</p>
           </div>
+          <ProgressChart studentId={studentId} />
           <div className="grid gap-4 md:grid-cols-2">
             {res.data.modules.map((m) => (
               <div key={m.code || m.module} className="card">

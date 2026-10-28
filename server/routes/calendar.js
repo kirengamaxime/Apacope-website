@@ -3,6 +3,7 @@ const { Timetable, Event, Student, Announcement, Parent } = require('../models')
 const { protect, authorize } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
 const { wrap } = require('../utils/helpers');
+const { toMin, findClashes, allClashes } = require('../utils/timetableClash');
 
 router.use(protect);
 
@@ -23,20 +24,52 @@ router.get('/timetable', wrap(async (req, res) => {
   res.json(await Timetable.find(q).populate('class', 'name').populate('module', 'name').populate('trainer', 'name').sort({ day: 1, startTime: 1 }));
 }));
 
+/** Times must be HH:MM with the end after the start */
+function checkTimes(body) {
+  const st = toMin(body.startTime); const en = toMin(body.endTime);
+  if (st === null || en === null) return 'Enter a start time and an end time.';
+  if (en <= st) return 'The end time must be after the start time.';
+  return null;
+}
+const clashReply = (clashes) => ({
+  message: `Clash: ${clashes[0].message}${clashes.length > 1 ? ` (and ${clashes.length - 1} more)` : ''}.`,
+  clashes,
+});
+
+/** Live check used by the form while the DOS picks the day, time, trainer and room */
+router.post('/timetable/check', authorize('dos', 'headteacher'), wrap(async (req, res) => {
+  const problem = checkTimes(req.body);
+  if (problem) return res.json({ clashes: [], problem });
+  res.json({ clashes: await findClashes(req.body, req.body.id || null) });
+}));
+
+/** Clashes that already exist in the saved timetable */
+router.get('/timetable/clashes', authorize('dos', 'headteacher'), wrap(async (req, res) => {
+  res.json({ clashes: await allClashes() });
+}));
+
 router.post('/timetable', authorize('dos', 'headteacher'), wrap(async (req, res) => {
-  const clash = await Timetable.findOne({
-    day: req.body.day, startTime: req.body.startTime,
-    $or: [{ trainer: req.body.trainer }, { room: req.body.room, class: { $ne: req.body.class } }, { class: req.body.class }],
-  });
-  if (clash) return res.status(409).json({ message: 'Clash: trainer, room or class already booked for that slot' });
-  const t = await Timetable.create(req.body);
-  await audit(req, 'TIMETABLE_CREATE', 'Timetable', t._id);
+  const problem = checkTimes(req.body);
+  if (problem) return res.status(400).json({ message: problem });
+  const { force, ...body } = req.body;
+  const clashes = await findClashes(body);
+  if (clashes.length && force !== true) return res.status(409).json(clashReply(clashes));
+  const t = await Timetable.create(body);
+  await audit(req, 'TIMETABLE_CREATE', 'Timetable', t._id, clashes.length ? { savedWithClash: clashes.map((c) => c.kind) } : undefined);
   res.status(201).json(t);
 }));
 
 router.put('/timetable/:id', authorize('dos', 'headteacher'), wrap(async (req, res) => {
-  const t = await Timetable.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  await audit(req, 'TIMETABLE_UPDATE', 'Timetable', t._id);
+  const old = await Timetable.findById(req.params.id);
+  if (!old) return res.status(404).json({ message: 'Not found' });
+  const { force, ...body } = req.body;
+  const merged = { ...old.toObject(), ...body };
+  const problem = checkTimes(merged);
+  if (problem) return res.status(400).json({ message: problem });
+  const clashes = await findClashes(merged, old._id);
+  if (clashes.length && force !== true) return res.status(409).json(clashReply(clashes));
+  const t = await Timetable.findByIdAndUpdate(req.params.id, body, { new: true });
+  await audit(req, 'TIMETABLE_UPDATE', 'Timetable', t._id, clashes.length ? { savedWithClash: clashes.map((c) => c.kind) } : undefined);
   // notify the affected class about the change
   await Announcement.create({
     title: 'Timetable updated', kind: 'class-message', author: req.user._id, classes: [t.class],
@@ -75,6 +108,7 @@ router.post('/events', authorize('dos', 'headteacher'), wrap(async (req, res) =>
 }));
 router.put('/events/:id', authorize('dos', 'headteacher'), wrap(async (req, res) => {
   const e = await Event.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  if (!e) return res.status(404).json({ message: 'Not found' });
   await audit(req, 'EVENT_UPDATE', 'Event', req.params.id);
   res.json(e);
 }));
