@@ -1,40 +1,37 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
 
-const clearL5SWDMarks = async () => {
+const clearL5Data = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
     console.log('✅ Connected to MongoDB...');
 
-    // 1. Access the collections directly
     const db = mongoose.connection.db;
-    const classesCollection = db.collection('classes'); // Check if your collection is named 'classes'
-    const assessmentsCollection = db.collection('assessments');
+    const classesCollection = db.collection('classes');
+    const attendancesCollection = db.collection('attendances');
+    const assignmentsCollection = db.collection('assignments');
 
-    // 2. Find the specific L5 SWD class
-    // Adjust 'level' and 'trade' if your database uses different field names (e.g., 'className')
-      // 2. Find the specific L5 SWD class by its exact name
-    const targetClass = await classesCollection.findOne({ 
-      name: 'L5 SWD' 
-    });
+    // 1. Find the L5 SWD class ID
+    const targetClass = await classesCollection.findOne({ name: 'L5 SWD' });
 
     if (!targetClass) {
-      console.log('❌ Could not find a class matching Level: L5 and Trade: SWD.');
-      // Let's print all classes so you can see how they are named
-      const allClasses = await classesCollection.find({}).toArray();
-      console.log("Here are the classes in your DB:", allClasses);
+      console.log('❌ Could not find class named "L5 SWD".');
       process.exit(1);
     }
 
-    console.log(`Found Class ID: ${targetClass._id}`);
+    const classId = targetClass._id;
+    console.log(`Found "L5 SWD" with ID: ${classId}`);
 
-    // 3. Delete the assessments
-    const result = await assessmentsCollection.deleteMany({ 
-      class: targetClass._id 
-    });
+    // 2. Delete Attendance Records
+    const attResult = await attendancesCollection.deleteMany({ class: classId });
+    console.log(`🗑️ Deleted ${attResult.deletedCount} attendance records.`);
 
-    console.log(`🗑️ SUCCESS: Deleted ${result.deletedCount} assessment records for L5 SWD.`);
-    
+    // 3. Delete Assignment Records
+    // Note: If your assignments are linked by module instead of class, we may need to adjust this.
+    const assResult = await assignmentsCollection.deleteMany({ class: classId });
+    console.log(`🗑️ Deleted ${assResult.deletedCount} assignment records.`);
+
+    console.log('✅ All done!');
     process.exit(0);
   } catch (err) {
     console.error('❌ Error:', err);
@@ -42,4 +39,4 @@ const clearL5SWDMarks = async () => {
   }
 };
 
-clearL5SWDMarks();
+clearL5Data();
