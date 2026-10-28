@@ -116,7 +116,9 @@ export default function Layout() {
   const { t } = useLang();
   const [drawer, setDrawer] = useState(false);
   const { pathname } = useLocation();
-  const items = NAV.filter((n) => n.roles === '*' || user.role === 'admin' || n.roles.includes(user.role));
+    // pages made only for learners and parents are never shown to the administrator
+  const LEARNER_ONLY = ['/my-report', '/my-attendance'];
+  const items = NAV.filter((n) => n.roles === '*' || (user.role === 'admin' ? !LEARNER_ONLY.includes(n.to) : n.roles.includes(user.role)));
   const current = NAV.find((n) => pathname === n.to || pathname.startsWith(`${n.to}/`));
   useEffect(() => { setDrawer(false); window.scrollTo(0, 0); }, [pathname]);
   const date = formatDate(new Date(), true); // follows the chosen language
