@@ -3,10 +3,27 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { api, qs } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { PageHeader, Alert, Spinner, useFetch } from '../components/ui';
+import { parseQuestions } from '../utils/parseQuestions';
 
 let seq = 0;
 const blankQ = () => ({ key: `n${seq++}`, text: '', type: 'text', options: ['', ''], correct: 0, points: 1 });
-const shape = (list) => list.map((q) => ({ ...(q._id ? { _id: q._id } : {}), text: q.text.trim(), type: q.type, points: Number(q.points), ...(q.type === 'choice' ? { options: q.options.map((o) => o.trim()).filter(Boolean), correct: q.correct } : {}) }));
+// empty choices are dropped, so the position of the correct one is worked out again
+const shape = (list) => list.map((q) => {
+  const kept = q.options.map((o, k) => ({ o: o.trim(), k })).filter((x) => x.o);
+  return {
+    ...(q._id ? { _id: q._id } : {}), text: q.text.trim(), type: q.type, points: Number(q.points),
+    ...(q.type === 'choice' ? { options: kept.map((x) => x.o), correct: Math.max(0, kept.findIndex((x) => x.k === q.correct)) } : {}),
+  };
+});
+/** what is still wrong with a question (empty text, fewer than two choices, no correct choice chosen) */
+const problemOf = (q) => {
+  if (!q.text.trim()) return 'Write the question.';
+  if (q.type === 'choice') {
+    if (q.options.filter((o) => o.trim()).length < 2) return 'Add at least two choices.';
+    if (!(q.options[q.correct] || '').trim() || q.correct < 0) return 'Tick the correct choice.';
+  }
+  return '';
+};
 
 /** Write a new assignment, or change one that is not locked yet */
 export default function AssignmentForm() {
@@ -20,6 +37,9 @@ export default function AssignmentForm() {
   const [f, setF] = useState({ title: '', instructions: '', classId: '', moduleId: '', termId: '', dueDate: '', type: 'formative' });
   const [questions, setQuestions] = useState([blankQ()]);
   const [startQs, setStartQs] = useState('');
+  const [pasteOpen, setPasteOpen] = useState(!edit);
+  const [pasteText, setPasteText] = useState('');
+  const [pasteNote, setPasteNote] = useState('');
   const [roster, setRoster] = useState([]);
   const [picked, setPicked] = useState([]);
   const [loaded, setLoaded] = useState(!edit);
@@ -69,10 +89,23 @@ export default function AssignmentForm() {
   const total = questions.reduce((t, q) => t + (Number(q.points) || 0), 0);
   const toggle = (sid) => setPicked(picked.includes(sid) ? picked.filter((x) => x !== sid) : [...picked, sid]);
 
+  // read the pasted text and turn it into editable questions below
+  const analyze = () => {
+    const { questions: found, notes } = parseQuestions(pasteText);
+    if (!found.length) return setPasteNote('No questions were found. Start each question with a number, for example "1." and put each choice on its own line as A. B. C. D.');
+    const fresh = found.map((q) => ({ key: `n${seq++}`, text: q.text, type: q.type, options: q.type === 'choice' ? q.options : ['', ''], correct: q.correct, points: q.points }));
+    const onlyBlank = questions.length === 1 && !questions[0].text.trim() && !questions[0]._id;
+    setQuestions(onlyBlank ? fresh : [...questions, ...fresh]);
+    setPasteNote(`${found.length} question${found.length === 1 ? '' : 's'} found (${found.filter((q) => q.type === 'choice').length} multiple choice). Check them below and change anything that is wrong. ${notes.join(' ')}`);
+    setPasteText('');
+  };
+
   const save = async (status) => {
     setError('');
     if (!f.title.trim()) return setError('Give the assignment a title.');
     if (!picked.length) return setError('Choose at least one learner.');
+    const bad = questions.findIndex((q) => problemOf(q));
+    if (bad >= 0) return setError(`Question ${bad + 1}: ${problemOf(questions[bad])}`);
     const q = shape(questions);
     setBusy(true);
     try {
@@ -122,9 +155,25 @@ export default function AssignmentForm() {
         </div>
 
         <div className="space-y-3">
+          <div className="card">
+            <div className="flex items-center justify-between gap-2">
+              <div><h2>Paste your questions</h2><p className="text-sm text-ink-500">Save time: paste questions you already typed (from Word, WhatsApp or a text file) and the system sets them up for you to check.</p></div>
+              <button type="button" className="btn-ghost" onClick={() => setPasteOpen(!pasteOpen)}>{pasteOpen ? 'Hide' : 'Paste questions'}</button>
+            </div>
+            {pasteOpen && (
+              <div className="mt-3 space-y-2">
+                <textarea className="input min-h-[180px] font-mono text-sm" value={pasteText} onChange={(e) => setPasteText(e.target.value)} placeholder={'1. What does HTML stand for?\nA. Hyper Text Markup Language\nB. High Tech Modern Language\nC. Home Tool Markup Language\nAnswer: A\n\n2. Explain the box model. (5 marks)\n\nYou can also put the answers at the end:  Answers: 1-A, 3-C'} />
+                <div className="flex flex-wrap items-center gap-3">
+                  <button type="button" className="btn-primary" disabled={!pasteText.trim()} onClick={analyze}>Analyze and add the questions</button>
+                  <p className="text-xs text-ink-500">Start each question with a number. Put choices as A. B. C. D. Give the correct one as "Answer: B", or mark it with * at the end.</p>
+                </div>
+              </div>
+            )}
+            {pasteNote && <p className="mt-3 rounded-md bg-emerald-50 p-2.5 text-sm text-emerald-900">{pasteNote}</p>}
+          </div>
           <div className="flex items-baseline justify-between"><h2>Questions</h2><span className="text-sm text-ink-500">Total: <b className="text-ink-900">{total} points</b></span></div>
           {questions.map((q, i) => (
-            <div key={q.key} className="card space-y-3">
+            <div key={q.key} className={`card space-y-3 ${pasteNote && problemOf(q) && q.text.trim() ? 'border-amber-400 ring-1 ring-amber-300' : ''}`}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-semibold">Question {i + 1}</span>
                 <div className="flex flex-wrap items-center gap-2">
@@ -134,6 +183,7 @@ export default function AssignmentForm() {
                 </div>
               </div>
               <textarea className="input min-h-[70px]" value={q.text} onChange={(e) => setQ(i, { text: e.target.value })} placeholder="Type the question here" />
+              {pasteNote && q.text.trim() && problemOf(q) && <p className="text-sm font-medium text-amber-700">{problemOf(q)}</p>}
               {q.type === 'choice' && (
                 <div className="space-y-2">
                   <p className="text-xs text-ink-500">Tick the circle beside the correct choice. These questions are marked automatically.</p>
@@ -154,7 +204,7 @@ export default function AssignmentForm() {
 
         <div className="flex flex-wrap gap-2 pb-6">
           <button className="btn-primary" disabled={busy} onClick={() => save('published')}>{edit ? 'Save and publish' : 'Publish to learners'}</button>
-          <button className="btn-ghost" disabled={busy} onClick={() => save('draft')}>Save as draft (learners cannot see it)</button>
+          <button className="btn-ghost" disabled={busy} on–Click={() => save('draft')}>Save as draft (learners cannot see it)</button>
           <button className="btn-ghost" disabled={busy} onClick={() => navigate('/assignments')}>Cancel</button>
         </div>
       </div>
