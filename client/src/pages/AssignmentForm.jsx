@@ -204,7 +204,7 @@ export default function AssignmentForm() {
 
         <div className="flex flex-wrap gap-2 pb-6">
           <button className="btn-primary" disabled={busy} onClick={() => save('published')}>{edit ? 'Save and publish' : 'Publish to learners'}</button>
-          <button className="btn-ghost" disabled={busy} on–Click={() => save('draft')}>Save as draft (learners cannot see it)</button>
+          <button className="btn-ghost" disabled={busy} onClick={() => save('draft')}>Save as draft (learners cannot see it)</button>
           <button className="btn-ghost" disabled={busy} onClick={() => navigate('/assignments')}>Cancel</button>
         </div>
       </div>
