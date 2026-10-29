@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api, qs } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { PageHeader, Alert, Spinner, Empty, Modal, Pagination, useFetch, fmtDate } from '../components/ui';
+import { useDialog } from '../components/Dialog';
 
 const CATS = ['computer', 'lab', 'tool', 'book', 'other'];
 const COND = { good: 'bg-emerald-50 text-emerald-700', fair: 'bg-amber-50 text-amber-700', damaged: 'bg-red-100 text-red-700' };
@@ -54,19 +55,25 @@ export default function Inventory() {
   const [err, setErr] = useState('');
   const [lend, setLend] = useState(null);
   const refresh = () => { items.reload(); loans.reload(); };
+  const dialog = useDialog();
   const removeItem = async (i) => {
-    if (!window.confirm(`Delete "${i.name}" from the inventory? Its loan history is deleted too. This cannot be undone.`)) return;
+    if (!(await dialog.confirm({ title: 'Delete this item?', message: `"${i.name}" will be removed from the inventory and its loan history is deleted too. This cannot be undone.`, confirmText: 'Delete item', danger: true }))) return;
     setErr('');
     try { await api.del(`/inventory/items/${i._id}`); refresh(); } catch (e) { setErr(e.message); }
   };
   const removeLoan = async (l) => {
-    if (!window.confirm(`Delete this loan record (${l.item?.name} - ${l.borrower?.name})?`)) return;
+    if (!(await dialog.confirm({ title: 'Delete this loan record?', message: `${l.item?.name} - ${l.borrower?.name}`, confirmText: 'Delete record', danger: true }))) return;
     setErr('');
     try { await api.del(`/inventory/loans/${l._id}`); refresh(); } catch (e) { setErr(e.message); }
   };
   const giveBack = async (l) => {
-    const damaged = window.confirm('Was the item damaged? OK = yes, Cancel = no');
-    const damageNote = damaged ? window.prompt('Describe the damage') || '' : '';
+    const r = await dialog.form({
+      title: 'Receive the item back', message: `${l.item?.name} - ${l.borrower?.name}`, confirmText: 'Mark as returned',
+      fields: [{ name: 'damageNote', label: 'Damage', multiline: true, placeholder: 'Leave empty if the item is in good condition', hint: 'Describe any damage so it is recorded against this loan.' }],
+    });
+    if (!r) return;
+    const damageNote = r.damageNote;
+    const damaged = !!damageNote;
     await api.put(`/inventory/loans/${l._id}/return`, { damaged, damageNote }); refresh();
   };
   return (

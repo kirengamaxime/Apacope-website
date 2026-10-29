@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api, qs } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { PageHeader, Alert, Spinner, Empty, useFetch, fmtDate } from '../components/ui';
+import { useDialog } from '../components/Dialog';
 
 const MARKS = {
   open: ['Open', 'bg-sky-50 text-sky-800'],
@@ -41,7 +42,7 @@ function LearnerList({ items }) {
             <p className="mt-3 text-sm text-ink-500">{a.questionCount} question{a.questionCount === 1 ? '' : 's'} - {a.points} points{a.dueDate ? ` - due ${fmtDate(a.dueDate)}` : ''}</p>
             {!done && isLate(a) && <p className="mt-1 text-sm font-medium text-brand-700">The deadline has passed</p>}
             {done && a.mine.total === null && <p className="mt-1 text-sm text-ink-500">Your marks will appear here as soon as your trainer has marked it.</p>}
-            <p className="mt-3 text-sm font-semibold text-brand-700">{a.mine.total !== null ? 'See my marks' : done ? 'Open' : a.mine.status === 'started' ? 'Continue' : 'Start'} &rarr;</p>
+            <p className="mt-3 text-sm font-semibold text-brand-700">{done ? 'Open' : a.mine.status === 'started' ? 'Continue' : 'Start'} &rarr;</p>
           </Link>
         );
       })}
@@ -57,8 +58,9 @@ export default function Assignments() {
   const [tab, setTab] = useState(learner || trainer ? '' : 'pending');
   const { data, loading, error, reload } = useFetch(() => api.get(`/online-assignments${qs({ marksStatus: tab })}`), [tab]);
   const [err, setErr] = useState('');
+  const dialog = useDialog();
   const remove = async (a) => {
-    if (!window.confirm(`Delete "${a.title}"?\n\nEvery learner's answers for it are deleted too. This cannot be undone.`)) return;
+    if (!(await dialog.confirm({ title: 'Delete this assignment?', message: `"${a.title}"\n\nEvery learner's answers for it are deleted too. This cannot be undone.`, confirmText: 'Delete assignment', danger: true }))) return;
     setErr('');
     try { await api.del(`/online-assignments/${a._id}`); reload(); } catch (e) { setErr(e.message); }
   };

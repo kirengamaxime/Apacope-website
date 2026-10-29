@@ -3,6 +3,7 @@ import { api, qs } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { PageHeader, Alert, Spinner, Empty, Modal, Pagination, StatusBadge, Stat, useFetch, fmtDate, fmtMoney, today } from '../components/ui';
+import { useDialog } from '../components/Dialog';
 
 function PayForm({ invoice, onClose, onDone }) {
   const balance = invoice.amount - invoice.paid;
@@ -76,13 +77,14 @@ export default function Finance() {
   const [editInv, setEditInv] = useState(null);
   const [err, setErr] = useState('');
   const refresh = () => { inv.reload(); pay.reload(); sum.reload(); };
+  const dialog = useDialog();
   const removeInvoice = async (i) => {
-    if (!window.confirm(`Delete this invoice for ${i.student?.firstName} ${i.student?.lastName} (${fmtMoney(i.amount)})?\n\nAll receipts issued for it are deleted too. This cannot be undone.`)) return;
+    if (!(await dialog.confirm({ title: 'Delete this invoice?', message: `Invoice for ${i.student?.firstName} ${i.student?.lastName} (${fmtMoney(i.amount)}).\n\nAll receipts issued for it are deleted too. This cannot be undone.`, confirmText: 'Delete invoice', danger: true }))) return;
     setErr('');
     try { await api.del(`/finance/invoices/${i._id}`); refresh(); } catch (e) { setErr(e.message); }
   };
   const removePayment = async (p) => {
-    if (!window.confirm(`Cancel receipt ${p.receiptNo} (${fmtMoney(p.amount)})? The invoice balance goes back up.`)) return;
+    if (!(await dialog.confirm({ title: 'Cancel this receipt?', message: `Receipt ${p.receiptNo} (${fmtMoney(p.amount)}) will be cancelled and the invoice balance goes back up.`, confirmText: 'Cancel receipt', cancelText: 'Keep it', danger: true }))) return;
     setErr('');
     try { await api.del(`/finance/payments/${p._id}`); refresh(); } catch (e) { setErr(e.message); }
   };

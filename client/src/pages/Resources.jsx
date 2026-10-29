@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api, qs, download, blobUrl } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { PageHeader, Alert, Spinner, Empty, Modal, Pagination, useFetch, fmtDate } from '../components/ui';
+import { useDialog } from '../components/Dialog';
 
 const KIND_ICON = { video: 'VIDEO', pdf: 'PDF', word: 'DOC', image: 'IMG', link: 'LINK' };
 const ytId = (u = '') => (u.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{11})/) || [])[1];
@@ -117,7 +118,16 @@ export default function Resources({ category }) {
 
   const bookmark = async (r) => { await api.post(`/resources/${r._id}/bookmark`); reload(); };
   const approve = async (r, approved) => { await api.put(`/resources/${r._id}/approve`, { approved }); reload(); };
-  const remove = async (r) => { if (window.confirm('Delete this resource?')) { await api.del(`/resources/${r._id}`); reload(); } };
+  const dialog = useDialog();
+  const edit = async (r) => {
+    const v = await dialog.form({
+      title: 'Edit this resource', confirmText: 'Save changes',
+      fields: [{ name: 'title', label: 'Title', value: r.title, required: true }, { name: 'description', label: 'Description', value: r.description || '', multiline: true }],
+    });
+    if (!v) return;
+    try { await api.put(`/resources/${r._id}`, { title: v.title || r.title, description: v.description }); reload(); } catch (e) { dialog.alert({ title: 'Could not save the changes', message: e.message }); }
+  };
+  const remove = async (r) => { if (await dialog.confirm({ title: 'Delete this resource?', message: r.title, confirmText: 'Delete resource', danger: true })) { await api.del(`/resources/${r._id}`); reload(); } };
 
   return (
     <>
@@ -157,7 +167,7 @@ export default function Resources({ category }) {
                 <button className="btn-primary flex-1" onClick={() => setOpen(r)}>Preview</button>
                 {r.file && <button className="btn-ghost" onClick={() => download(`/resources/${r._id}/download`, r.file.originalName).then(history.reload)}>Download</button>}
                 {moderator && r.category === 'entertainment' && <button className="btn-ghost" onClick={() => approve(r, !r.approved)}>{r.approved ? 'Unpublish' : 'Approve'}</button>}
-                {canPost && (user.role !== 'trainer' || r.uploadedBy?.name === user.name) && <button className="btn-danger" onClick={() => remove(r)}>Delete</button>}
+                {canPost && (user.role !== 'trainer' || r.uploadedBy?.name === user.name) && <><button className="btn-ghost" onClick={() => edit(r)}>Edit</button><button className="btn-danger" onClick={() => remove(r)}>Delete</button></>}
               </div>
             </div>
           ))}

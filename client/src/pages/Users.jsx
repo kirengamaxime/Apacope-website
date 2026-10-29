@@ -5,6 +5,7 @@ import { api, qs } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { ROLE_LABEL } from '../components/Layout';
 import { PageHeader, Alert, Spinner, Empty, Modal, Pagination, useFetch, fmtDate } from '../components/ui';
+import { useDialog } from '../components/Dialog';
 
 const STAFF = ['headteacher', 'dos', 'trainer', 'accountant', 'librarian'];
 const OTHER = ['student', 'parent', 'admin'];
@@ -82,12 +83,13 @@ export default function Users() {
   const [form, setForm] = useState(null); // null | {} | user
   const [creds, setCreds] = useState(null);
   const [err, setErr] = useState('');
+  const dialog = useDialog();
   const reset = async (u) => {
-    if (!window.confirm(`Generate a new one-time password for ${u.name}? Their current password stops working.`)) return;
+    if (!(await dialog.confirm({ title: 'Generate a new password?', message: `${u.name} gets a new one-time password and their current password stops working.`, confirmText: 'Generate password', danger: true }))) return;
     try { setCreds(await api.post(`/users/${u._id}/reset-password`)); } catch (e) { setErr(e.message); }
   };
   const remove = async (u) => {
-    if (!window.confirm(`Permanently delete ${u.name} (${u.email})? This cannot be undone.\n\nTo only block their login, press Cancel, then use Edit and untick "Account active".`)) return;
+    if (!(await dialog.confirm({ title: 'Permanently delete this user?', message: `${u.name} (${u.email}) will be deleted. This cannot be undone.\n\nTo only block their login, choose Cancel, then use Edit and untick "Account active".`, confirmText: 'Delete user', danger: true }))) return;
     setErr('');
     try { await api.del(`/users/${u._id}`); reload(); } catch (e) { setErr(e.message); }
   };

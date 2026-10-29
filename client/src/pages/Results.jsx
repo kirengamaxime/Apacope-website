@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { PageHeader, Alert, Spinner, Empty, useFetch } from '../components/ui';
 import ProgressChart from '../components/ProgressChart';
+import { useDialog } from '../components/Dialog';
 
 export default function Results() {
   const { user } = useAuth();
@@ -16,8 +17,9 @@ export default function Results() {
   const staff = !['student', 'parent'].includes(user.role);
   const canEdit = ['trainer', 'dos', 'admin'].includes(user.role);
   const [err, setErr] = useState('');
+  const dialog = useDialog();
   const changeMark = async (i) => {
-    const v = window.prompt(`New score for "${i.title}" (out of ${i.maxScore})`, i.score);
+    const v = await dialog.prompt({ title: 'Change this mark', message: `"${i.title}" (${t(i.type)})`, label: `New score (out of ${i.maxScore})`, value: String(i.score), type: 'number', step: 'any', min: 0, max: i.maxScore, required: true, confirmText: 'Save mark' });
     if (v === null || v.trim() === '') return;
     const n = Number(v);
     if (Number.isNaN(n) || n < 0 || n > i.maxScore) return setErr(`Score must be between 0 and ${i.maxScore}`);
@@ -25,7 +27,7 @@ export default function Results() {
     try { await api.put(`/assessments/${i.id}`, { score: n }); res.reload(); } catch (e) { setErr(e.message); }
   };
   const removeMark = async (i) => {
-    if (!window.confirm(`Delete the mark "${i.title}" (${i.score}/${i.maxScore})?`)) return;
+    if (!(await dialog.confirm({ title: 'Delete this mark?', message: `"${i.title}" (${i.score}/${i.maxScore}) will be removed from the learner's results.`, confirmText: 'Delete mark', danger: true }))) return;
     setErr('');
     try { await api.del(`/assessments/${i.id}`); res.reload(); } catch (e) { setErr(e.message); }
   };

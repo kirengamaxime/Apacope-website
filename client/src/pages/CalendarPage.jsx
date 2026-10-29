@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { PageHeader, Alert, Spinner, Empty, Modal, useFetch, fmtDate, today } from '../components/ui';
+import { useDialog } from '../components/Dialog';
 
 const TYPES = { term: 'Academic term', holiday: 'Holiday', exam: 'Exam', meeting: 'Meeting', makerspace: 'Maker Space', other: 'Other' };
 const COLORS = { term: 'bg-sky-50 text-sky-700', holiday: 'bg-emerald-50 text-emerald-700', exam: 'bg-amber-50 text-amber-700', meeting: 'bg-violet-50 text-violet-700', makerspace: 'bg-brand-50 text-brand-700', other: 'bg-ink-100 text-ink-700' };
@@ -27,7 +28,8 @@ export default function CalendarPage() {
       setAdd(false); reload();
     } catch (er) { setErr(er.message); }
   };
-  const remove = async (ev) => { if (window.confirm('Delete event?')) { await api.del(`/calendar/events/${ev._id}`); reload(); } };
+  const dialog = useDialog();
+  const remove = async (ev) => { if (await dialog.confirm({ title: 'Delete this event?', message: ev.title, confirmText: 'Delete event', danger: true })) { await api.del(`/calendar/events/${ev._id}`); reload(); } };
   const upcoming = (data || []).filter((e) => new Date(e.end || e.start) >= new Date(new Date().toDateString()));
   const past = (data || []).filter((e) => !upcoming.includes(e)).reverse();
   const List = ({ items }) => (

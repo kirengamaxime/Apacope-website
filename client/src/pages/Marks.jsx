@@ -3,6 +3,7 @@ import { api, qs } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { PageHeader, Alert, Spinner, Empty, useFetch } from '../components/ui';
 import { StatusPill } from './MarksReview';
+import { useDialog } from '../components/Dialog';
 
 export default function Marks() {
   const { user } = useAuth();
@@ -54,8 +55,9 @@ export default function Marks() {
   const hasMarks = sheet.some((r) => r.max > 0);
   const canSubmit = ['draft', 'returned'].includes(wf.status) && hasMarks;
 
+  const dialog = useDialog();
   const submitToDos = async () => {
-    if (!window.confirm('Submit these marks to the DOS?\n\nAfter you submit you cannot change them unless the DOS sends them back to you.')) return;
+    if (!(await dialog.confirm({ title: 'Submit these marks to the DOS?', message: 'After you submit you cannot change them unless the DOS sends them back to you.', confirmText: 'Submit marks' }))) return;
     setError(''); setMsg(''); setSending(true);
     try { await api.post('/mark-submissions/submit', { classId, moduleId, termId }); setMsg('Marks submitted to the DOS.'); loadStatus(); }
     catch (e) { setError(e.message); } finally { setSending(false); }

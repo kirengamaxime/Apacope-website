@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { PageHeader, Alert, Spinner, Empty, Modal, Pagination, useFetch, fmtDate } from '../components/ui';
+import { useDialog } from '../components/Dialog';
 
 const ROLES = ['headteacher', 'dos', 'trainer', 'student', 'parent', 'accountant', 'librarian'];
 
@@ -68,7 +69,8 @@ export default function Announcements() {
   const [compose, setCompose] = useState(false);
   const [editNote, setEditNote] = useState(null);
   const ack = async (a) => { await api.post(`/announcements/${a._id}/ack`); reload(); };
-  const del = async (a) => { if (window.confirm('Delete this announcement?')) { await api.del(`/announcements/${a._id}`); reload(); } };
+  const dialog = useDialog();
+  const del = async (a) => { if (await dialog.confirm({ title: 'Delete this announcement?', message: a.title, confirmText: 'Delete announcement', danger: true })) { await api.del(`/announcements/${a._id}`); reload(); } };
   const KIND = { announcement: 'Official', 'class-message': 'Class message', 'parent-alert': 'Parent alert' };
   return (
     <>
