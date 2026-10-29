@@ -53,10 +53,10 @@ function SlotForm({ slot, onClose, onDone }) {
         </div>
         <div><label className="label">Module</label><select required className="input" value={f.module} onChange={up('module')}><option value="">Select</option>{(modules.data || []).map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}</select></div>
         <div><label className="label">Trainer</label><select required className="input" value={f.trainer} onChange={up('trainer')}><option value="">Select</option>{(trainers.data || []).map((t) => <option key={t._id} value={t._id}>{t.name}</option>)}</select></div>
-        <div className="grid grid-cols-3 gap-3">
-          <div><label className="label">Day</label><select className="input" value={f.day} onChange={up('day')}>{DAYS.slice(1, 7).map((d, i) => <option key={d} value={i + 1}>{d}</option>)}</select></div>
-          <div><label className="label">Start</label><input type="time" className="input" value={f.startTime} onChange={up('startTime')} /></div>
-          <div><label className="label">End</label><input type="time" className="input" value={f.endTime} onChange={up('endTime')} /></div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="col-span-2 sm:col-span-1"><label className="label">Day</label><select className="input" value={f.day} onChange={up('day')}>{DAYS.slice(1, 7).map((d, i) => <option key={d} value={i + 1}>{d}</option>)}</select></div>
+        <div><label className="label">Start</label><input type="time" className="input" value={f.startTime} onChange={up('startTime')} /></div>
+        <div><label className="label">End</label><input type="time" className="input" value={f.endTime} onChange={up('endTime')} /></div>
         </div>
         <div><label className="label">Room</label><input className="input" value={f.room} onChange={up('room')} placeholder="Lab 1" /></div>
         {problem && <p className="rounded-md bg-amber-50 p-2.5 text-sm text-amber-900">{problem}</p>}

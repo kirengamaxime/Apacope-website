@@ -34,8 +34,9 @@ export default function ReportSheet({ r, comment }) {
         <p className="px-5 py-10 text-center text-sm text-ink-500">No approved marks have been recorded for this learner in this period.</p>
       ) : (
         <>
-          <div className="mt-4 overflow-x-auto px-5">
-            <table className="w-full min-w-[560px] text-sm">
+          <p className="mx-5 mt-4 text-xs text-ink-500 sm:hidden print:hidden">Swipe the table sideways to see all the columns.</p>
+          <div className="mt-1 overflow-x-auto px-5 sm:mt-4">
+            <table className="w-full min-w-[520px] text-sm">
               <thead><tr className="bg-ink-900 text-white"><th className="px-3 py-2 text-left font-semibold">Module / assessment</th><th className="px-3 py-2 text-right font-semibold">Marks</th><th className="px-3 py-2 text-right font-semibold">%</th><th className="px-3 py-2 text-center font-semibold">Grade</th><th className="px-3 py-2 text-right font-semibold">Result</th></tr></thead>
               {r.modules.map((m) => (
                 <tbody key={m.code || m.module} className="break-inside-avoid">
